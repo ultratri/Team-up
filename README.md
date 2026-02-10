@@ -1,184 +1,117 @@
-# 校园组队系统 - Team Up Project
+# 校园组队生态系统 - Team Up Project
 
-基于多维标签与加权匹配算法的校园组队平台
-
----
-
-## 📚 项目文档
-
-完整的项目文档位于 [`docs/`](./docs/) 目录：
-
-- **[文档索引](./docs/README.md)** - 查看所有文档
-- **[团队管理功能](./docs/team-management/README.md)** - 团队管理模块文档
-- **[测试指南](./TESTING.md)** - 测试文档和运行指南 ⭐
-- **[实现计划](./docs/implementation-tasks/IMPLEMENTATION_PLAN.md)** - 硬编码功能实现计划
-- **[任务清单](./docs/implementation-tasks/TASK_CHECKLIST.md)** - 实现任务清单
+基于 **多维技能标签** 与 **双向加权匹配算法** 的一站式校园组队协作平台。
 
 ---
 
-## 🚀 快速开始
+## 🌟 项目核心理念
 
-### 前置要求
-- Node.js 16+
-- Java 11+
-- MySQL 8.0+
-- Redis (可选)
+本项目不仅是一个组队工具，更是一个**以项目为核心单元**的校园协作生态。我们打破了传统的“先组队后找事”模式，采用“**项目驱动 (Project-Driven)**”逻辑：
 
-### 后端启动
+- **项目是第一公民**：用户围绕具体目标（比赛、科研、实践）创建项目。
+- **团队是执行实体**：项目招募完成后自动转化为执行团队，支持临时解散或长期复用。
+- **比赛是可选导向**：项目可关联各类赛事，形成“发现赛事 -> 组建项目 -> 沉淀成果”的闭环。
+
+---
+
+## 🏗️ 核心业务模型
+
+基于《核心业务逻辑深度分析方案》，项目采用**混合模型**架构：
+
+```mermaid
+graph TD
+    User((用户)) -->|创建| Project[项目 Project]
+    Project -->|可选关联| Competition[比赛 Competition]
+    Project -->|招募完成| Team[团队 Team]
+    Team -->|执行| Task[任务/看板]
+    Team -->|沉淀| Showcase[成果/资源广场]
+    Team -->|评价| Evaluation[信誉分/勋章系统]
+```
+
+### 核心匹配机制 (Weighting logic)
+- **成员找项目**：技能匹配(40%) + 时间(25%) + 兴趣(20%) + 比赛偏好(10%)。
+- **项目找成员**：必需技能(50%) + 历史信誉(20%) + 时间投入(20%)。
+- **新手保护**：为新用户提供 30 天“新手光环”，在匹配权重中给予固定加成，解决冷启动问题。
+
+---
+
+## 🎨 生态综合广场 (Union Plaza)
+
+项目提供统一的生态入口，包含五大核心模块：
+
+1. **项目大厅 (Project Hall)**：核心招募地，支持“新手友好”筛选与匹配度感知。
+2. **人才墙 (Talent Square)**：展示活跃用户的技能名片，支持项目发起人“反向挖掘”。
+3. **赛事中心 (Competition Center)**：聚合校内外赛事，直接查看该赛事关联的活跃项目。
+4. **成果广场 (Asset Square)**：沉淀项目归档产出的开源代码、面经、技术方案。
+5. **任务/悬赏墙 (Bounty Board)**：针对短期、轻量化的技术需求（如改 Bug、画 Logo）提供快速协作入口。
+
+---
+
+## 🛠️ 技术架构
+
+### 后端服务 (Spring Boot)
+- **核心框架**：Spring Boot 2.7 + MyBatis-Plus
+- **数据库**：MySQL 8.0 (主存储) + Redis (缓存/通知)
+- **实时通信**：Socket.IO (团队群聊/系统通知)
+- **安全校验**：JWT + Spring Security
+
+### 匹配服务 (FastAPI)
+- **技术栈**：Python 3.11 + FastAPI
+- **职责**：基于用户画像和项目需求执行高并发的加权匹配算法。
+
+### 前端应用 (Vue 3)
+- **核心框架**：Vue 3 (Composition API) + TypeScript
+- **UI 组件库**：Element Plus
+- **状态管理**：Pinia
+- **构建工具**：Vite
+
+---
+
+## 🚀 快速启动
+
+### 1. 数据库配置
+执行 `backend/db_schema.sql` 初始化数据库表结构。
+
+### 2. 后端服务 (TeamUp Server)
 ```bash
 cd backend/teamup-server
+mvn clean install
 mvn spring-boot:run
 ```
 
-### 前端启动
+### 3. 匹配服务 (Matching Service)
+```bash
+cd matching-service
+pip install -r requirements.txt
+python main.py
+```
+
+### 4. 前端应用 (Frontend)
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-### 数据库初始化
-```bash
-mysql -u root -p < backend/db_schema.sql
-```
-
-### 运行测试
-```bash
-# 后端管理员功能测试
-cd tests/admin-smoke
-.\run-admin-test.ps1
-
-# 前端测试
-cd frontend
-npm run test
-```
-
-详细测试指南请查看 [TESTING.md](./TESTING.md)
-
 ---
 
-## 📁 项目结构
+## 📁 目录结构概览
 
 ```
 team-up-project/
-├── backend/                    # 后端服务
-│   ├── teamup-server/         # Spring Boot 应用
-│   └── db_schema.sql          # 数据库 Schema
-├── frontend/                   # 前端应用
-│   ├── src/                   # 源代码
-│   └── tests/                 # 前端测试文件
-├── tests/                      # 测试脚本目录 ⭐
-│   └── admin-smoke/           # 管理员功能冒烟测试
-└── docs/                      # 项目文档
-    ├── testing/               # 测试文档 ⭐
-    ├── team-management/       # 团队管理文档
-    ├── fixes/                 # 问题修复文档
-    ├── database/              # 数据库文档
-    └── implementation-tasks/  # 实现任务文档
+├── backend/                    # Spring Boot 后端源码
+├── frontend/                   # Vue 3 前端源码
+├── matching-service/           # Python 匹配算法服务
+├── project-files/docs/         # 核心业务分析与设计文档
+└── tests/                      # 自动化测试脚本 (Admin Smoke/E2E)
 ```
 
 ---
 
-## ✨ 主要功能
+## 🤝 贡献与规范
 
-### ✅ 已实现
-- 用户注册、登录、个人资料管理
-- 项目创建、浏览、申请
-- 团队创建、成员管理
-- 任务管理（看板）
-- 实时聊天
-- 通知系统
+- **提交规范**：遵循 `feat:`, `fix:`, `docs:`, `chore:` 前缀规范。
+- **开发流程**：建议在 `develop` 分支开发，通过 `PR` 合并至 `main`。
 
-### 🚧 进行中
-- 团队统计数据
-- 团队活动记录
-- 文件管理功能
-- 团队成员评价
-
-### 📋 计划中
-- 智能匹配推荐
-- 数据分析面板
-- 移动端适配
-
----
-
-## 🛠️ 技术栈
-
-### 后端
-- Spring Boot 2.7
-- MyBatis-Plus
-- MySQL 8.0
-- Redis
-- Socket.IO
-
-### 前端
-- Vue 3
-- TypeScript
-- Element Plus
-- Pinia
-- Vite
-
----
-
-## 🧪 测试状态
-
-### 后端测试
-- ✅ 管理员功能冒烟测试: 14/14 通过 (100%)
-- 📍 位置: `tests/admin-smoke/`
-
-### 前端测试
-- ✅ 单元测试: 84/84 通过 (100%)
-- 📍 位置: `frontend/tests/`
-
-详细信息请查看 [测试指南](./TESTING.md)
-
----
-
-## 📖 开发指南
-
-### 代码规范
-- 后端：遵循阿里巴巴 Java 开发手册
-- 前端：使用 ESLint + Prettier
-
-### 提交规范
-```
-feat: 新功能
-fix: 修复 Bug
-docs: 文档更新
-style: 代码格式
-refactor: 重构
-test: 测试
-chore: 构建/工具
-```
-
-### 分支管理
-- `main` - 生产环境
-- `develop` - 开发环境
-- `feature/*` - 功能分支
-- `fix/*` - 修复分支
-
----
-
-## 🤝 贡献指南
-
-1. Fork 项目
-2. 创建功能分支
-3. 提交代码
-4. 创建 Pull Request
-
----
-
-## 📄 许可证
-
-本项目仅用于学习和研究目的。
-
----
-
-## 📞 联系方式
-
-- 项目文档：[docs/README.md](./docs/README.md)
-- 问题反馈：通过 Issue 提交
-
----
-
-**最后更新**: 2026-01-23
+**版本**: v1.1  
+**最后更新**: 2026-02-10
