@@ -1,0 +1,262 @@
+// Auth Form & Card Shared Styles
+
+.auth-card {
+  width: 100%;
+  max-width: 520px;
+  border-radius: 28px;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 0.8));
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.04);
+  backdrop-filter: blur(20px);
+  padding: 40px;
+  transform-style: preserve-3d;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  
+  /* Glassmorphism highlight */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 28px;
+    padding: 1px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.6), rgba(255,255,255,0.1));
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+  
+  &:hover {
+    transform: translateY(-4px) rotateX(1deg);
+    box-shadow: 0 35px 80px rgba(0, 0, 0, 0.08);
+  }
+}
+
+[data-theme='dark'] .auth-card {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.8));
+  border-color: rgba(255, 255, 255, 0.05);
+  
+  &::before {
+    background: linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.02));
+  }
+}
+
+.auth-header-text {
+  margin-bottom: 32px;
+  
+  h2 {
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0 0 8px;
+    color: var(--text-color);
+    letter-spacing: -0.02em;
+  }
+  
+  p {
+    font-size: 16px;
+    color: var(--text-color-muted);
+    margin: 0;
+  }
+}
+
+/* Element Plus Form Overrides */
+.auth-form {
+  :deep(.el-form-item) {
+    margin-bottom: 24px;
+    /* 上下布局：label 在上，输入框在下 */
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  :deep(.el-form-item__label) {
+    color: var(--text-color);
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 6px;
+    padding-left: 0;
+    display: inline-flex;
+    align-items: center;
+    /* 顶部布局下 label 占满整行，左对齐 */
+    width: 100%;
+    flex: 0 0 auto;
+    text-align: left;
+    justify-content: flex-start !important;
+  }
+
+  :deep(.el-input__wrapper) {
+    padding: 12px 16px;
+    border-radius: 16px;
+    background: rgba(148, 163, 184, 0.08);
+    border: 2px solid transparent; /* Prepare for border transition */
+    box-shadow: none !important;
+    transition: all 0.3s ease;
+    height: 48px;
+    width: 100%; /* Force full width */
+    box-sizing: border-box;
+    
+    &:hover {
+      background: rgba(148, 163, 184, 0.12);
+    }
+    
+    &.is-focus {
+      background: var(--bg-elevated);
+      border-color: var(--accent-color);
+      box-shadow: 0 0 0 4px rgba(var(--accent-color-rgb), 0.15) !important;
+    }
+  }
+
+  /* Fix suffix icon causing width issues */
+  :deep(.el-input__suffix) {
+    right: 12px;
+  }
+
+  :deep(.el-input) {
+    width: 100%;
+  }
+
+  :deep(.el-input__inner) {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-color);
+    
+    &::placeholder {
+      color: var(--text-color-muted);
+      opacity: 0.6;
+    }
+  }
+  
+  /* Custom checkbox */
+  :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
+  }
+  
+  :deep(.el-checkbox__label) {
+    color: var(--text-color-muted);
+  }
+}
+.auth-form :deep(.el-form-item__content) {
+  width: 100%;
+}
+
+/* Submit Button */
+.auth-submit-btn {
+  width: 100%;
+  height: 52px;
+  border-radius: 26px;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  background: linear-gradient(135deg, var(--accent-color), var(--accent-color-dark));
+  border: none;
+  color: white;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 10px 25px -5px rgba(var(--accent-color-rgb), 0.5);
+
+  &:hover:not(:disabled) {
+    transform: translateY(-2px) scale(1.01);
+    box-shadow: 0 20px 40px -5px rgba(var(--accent-color-rgb), 0.6);
+    filter: brightness(1.05);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0) scale(0.98);
+  }
+  
+  &.is-loading {
+    opacity: 0.8;
+    cursor: not-allowed;
+  }
+}
+
+.auth-footer-links {
+  margin-top: 24px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-color-muted);
+  
+  a {
+    color: var(--accent-color);
+    font-weight: 600;
+    text-decoration: none;
+    margin-left: 4px;
+    
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+/* Inline Link Button Styles */
+.auth-inline-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-color);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.3s ease;
+  font-family: inherit;
+
+  &::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    transform: scaleX(0);
+    height: 2px;
+    bottom: -2px;
+    left: 0;
+    background-color: var(--accent-color);
+    transform-origin: bottom right;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0.6;
+  }
+
+  &:hover {
+    color: var(--accent-color-dark);
+    filter: brightness(1.1);
+    
+    &::after {
+      transform: scaleX(1);
+      transform-origin: bottom left;
+    }
+  }
+
+  &:active {
+    transform: translateY(1px);
+    opacity: 0.8;
+  }
+}
+
+.flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.mb-20 {
+  margin-bottom: 20px;
+}
+
+/* Dark mode specific overrides */
+[data-theme='dark'] {
+  .auth-form {
+    .el-input__wrapper {
+      background: rgba(30, 41, 59, 0.6);
+      
+      &:hover {
+        background: rgba(30, 41, 59, 0.8);
+      }
+      
+      &.is-focus {
+        background: rgba(30, 41, 59, 1);
+      }
+    }
+  }
+}

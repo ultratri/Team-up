@@ -1,0 +1,110 @@
+// 响应式样式
+
+// 平板设备
+@media screen and (max-width: 1024px) {
+  .project-square {
+    .project-list {
+      grid-template-columns: repeat(2, 1fr) !important;
+    }
+  }
+
+  .admin-dashboard {
+    .stat-cards {
+      :deep(.el-col) {
+        width: 50% !important;
+        margin-bottom: 20px;
+      }
+    }
+  }
+}
+
+// 移动设备
+@media screen and (max-width: 768px) {
+  // 隐藏侧边栏
+  .team-space {
+    :deep(.el-aside) {
+      display: none;
+    }
+  }
+
+  // 项目列表单列显示
+  .project-square {
+    .search-card {
+      :deep(.el-col) {
+        width: 100% !important;
+        margin-bottom: 10px;
+      }
+    }
+
+    .project-list {
+      grid-template-columns: 1fr !important;
+    }
+  }
+
+  // 任务看板垂直排列
+  .task-board {
+    .kanban-board {
+      grid-template-columns: 1fr !important;
+
+      .kanban-column {
+        margin-bottom: 20px;
+      }
+    }
+  }
+
+  // 聊天界面优化
+  .chat-container {
+    .message-list {
+      .message-item {
+        .message-content {
+          max-width: 80% !important;
+        }
+      }
+    }
+  }
+
+  // 统计卡片单列
+  .admin-dashboard {
+    .stat-cards {
+      :deep(.el-col) {
+        width: 100% !important;
+        margin-bottom: 16px;
+      }
+    }
+
+    .charts-section {
+      :deep(.el-col) {
+        width: 100% !important;
+        margin-bottom: 20px;
+      }
+    }
+  }
+
+  // 表单优化
+  :deep(.el-form) {
+    .el-form-item__label {
+      width: 80px !important;
+    }
+  }
+}
+
+// 小屏手机
+@media screen and (max-width: 480px) {
+  .login-card,
+  .register-card {
+    width: 95% !important;
+    margin: 0 auto;
+  }
+
+  .profile-edit-container {
+    :deep(.el-row) {
+      display: block !important;
+      
+      .el-col {
+        width: 100% !important;
+        margin-bottom: 20px;
+      }
+    }
+  }
+}
+

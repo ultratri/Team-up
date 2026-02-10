@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>自动登录</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; margin-top: 0; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover { background: #0056b3; }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .info { color: #17a2b8; }
+        #status { margin-top: 20px; padding: 15px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🔐 导师系统 - 自动登录</h1>
+        <p>点击下面的按钮自动登录并设置认证信息</p>
+        
+        <button onclick="autoLogin()">🚀 自动登录</button>
+        <button onclick="goToMentorSystem()">📋 访问导师系统</button>
+        
+        <div id="status"></div>
+    </div>
+
+    <script>
+        async function autoLogin() {
+            const status = document.getElementById('status');
+            status.innerHTML = '<p class="info">⏳ 正在登录...</p>';
+            
+            try {
+                // 1. 登录
+                const loginResponse = await fetch('http://localhost:8080/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        studentId: 'admin',
+                        password: 'password'
+                    })
+                });
+                
+                const loginData = await loginResponse.json();
+                
+                if (loginData.code !== 200) {
+                    status.innerHTML = `<p class="error">❌ 登录失败: ${loginData.message}</p>`;
+                    return;
+                }
+                
+                const token = loginData.data.token;
+                const user = loginData.data.user;
+                
+                // 2. 清除旧数据
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                // 3. 设置新数据
+                localStorage.setItem('token', token);
+                localStorage.setItem('user', JSON.stringify(user));
+                
+                // 4. 显示成功信息
+                status.innerHTML = `
+                    <p class="success">✅ 登录成功！</p>
+                    <p><strong>用户:</strong> ${user.username}</p>
+                    <p><strong>角色:</strong> ${user.roles.join(', ')}</p>
+                    <p><strong>Token:</strong> ${token.substring(0, 30)}...</p>
+                    <p class="info">认证信息已保存到 localStorage</p>
+                    <p class="info">3秒后自动跳转到导师系统...</p>
+                `;
+                
+                // 5. 3秒后跳转
+                setTimeout(() => {
+                    window.location.href = '/mentor/system/applications';
+                }, 3000);
+                
+            } catch (error) {
+                status.innerHTML = `<p class="error">❌ 错误: ${error.message}</p>`;
+            }
+        }
+        
+        function goToMentorSystem() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('请先点击"自动登录"按钮');
+                return;
+            }
+            window.location.href = '/mentor/system/applications';
+        }
+        
+        // 页面加载时检查是否已登录
+        window.onload = function() {
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            
+            if (token && user) {
+                const userObj = JSON.parse(user);
+                document.getElementById('status').innerHTML = `
+                    <p class="success">✅ 已登录</p>
+                    <p><strong>用户:</strong> ${userObj.username}</p>
+                    <p><strong>角色:</strong> ${userObj.roles.join(', ')}</p>
+                    <p class="info">可以直接访问导师系统</p>
+                `;
+            }
+        };
+    </script>
+</body>
+</html>

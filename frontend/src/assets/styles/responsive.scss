@@ -1,0 +1,255 @@
+// 响应式设计样式
+
+// 断点定义
+$breakpoint-xs: 480px;
+$breakpoint-sm: 640px;
+$breakpoint-md: 768px;
+$breakpoint-lg: 1024px;
+$breakpoint-xl: 1280px;
+$breakpoint-2xl: 1536px;
+
+// Mixins
+@mixin mobile {
+  @media (max-width: $breakpoint-sm - 1) {
+    @content;
+  }
+}
+
+@mixin tablet {
+  @media (min-width: $breakpoint-sm) and (max-width: $breakpoint-lg - 1) {
+    @content;
+  }
+}
+
+@mixin desktop {
+  @media (min-width: $breakpoint-lg) {
+    @content;
+  }
+}
+
+@mixin responsive($breakpoint) {
+  @media (max-width: $breakpoint) {
+    @content;
+  }
+}
+
+// 全局响应式样式
+html {
+  font-size: 16px;
+  
+  @include responsive($breakpoint-md) {
+    font-size: 15px;
+  }
+  
+  @include responsive($breakpoint-sm) {
+    font-size: 14px;
+  }
+}
+
+// 容器响应式
+.container {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 var(--spacing-lg);
+  
+  @include responsive($breakpoint-md) {
+    padding: 0 var(--spacing-md);
+  }
+  
+  @include responsive($breakpoint-sm) {
+    padding: 0 var(--spacing-sm);
+  }
+}
+
+// 网格响应式
+.grid {
+  @include responsive($breakpoint-lg) {
+    &.grid-4 {
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    }
+  }
+  
+  @include responsive($breakpoint-md) {
+    &.grid-3,
+    &.grid-4 {
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    }
+  }
+  
+  @include responsive($breakpoint-sm) {
+    &.grid-2,
+    &.grid-3,
+    &.grid-4 {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+// 文本响应式
+.page-title {
+  @include responsive($breakpoint-md) {
+    font-size: 24px !important;
+  }
+  
+  @include responsive($breakpoint-sm) {
+    font-size: 20px !important;
+  }
+}
+
+.page-subtitle {
+  @include responsive($breakpoint-sm) {
+    font-size: 14px !important;
+  }
+}
+
+// 间距响应式
+.page-container,
+.page-header,
+.search-bar {
+  @include responsive($breakpoint-md) {
+    margin-bottom: var(--spacing-md);
+  }
+  
+  @include responsive($breakpoint-sm) {
+    margin-bottom: var(--spacing-sm);
+  }
+}
+
+// 卡片响应式
+.card {
+  @include responsive($breakpoint-md) {
+    padding: var(--spacing-md);
+    border-radius: var(--radius-small);
+  }
+  
+  @include responsive($breakpoint-sm) {
+    padding: var(--spacing-sm);
+  }
+}
+
+// 按钮响应式
+.btn-primary,
+.btn-secondary {
+  @include responsive($breakpoint-sm) {
+    padding: 10px 20px;
+    font-size: 14px;
+  }
+}
+
+// 隐藏/显示工具类
+.hide-mobile {
+  @include mobile {
+    display: none !important;
+  }
+}
+
+.hide-tablet {
+  @include tablet {
+    display: none !important;
+  }
+}
+
+.hide-desktop {
+  @include desktop {
+    display: none !important;
+  }
+}
+
+.show-mobile {
+  display: none !important;
+  
+  @include mobile {
+    display: block !important;
+  }
+}
+
+.show-tablet {
+  display: none !important;
+  
+  @include tablet {
+    display: block !important;
+  }
+}
+
+.show-desktop {
+  display: none !important;
+  
+  @include desktop {
+    display: block !important;
+  }
+}
+
+// 触摸设备优化
+@media (hover: none) and (pointer: coarse) {
+  // 增加触摸目标大小
+  button,
+  a,
+  .clickable {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  // 移除悬停效果
+  .team-card:hover,
+  .card:hover {
+    transform: none;
+  }
+  
+  // 增加点击反馈
+  .team-card:active,
+  .card:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+}
+
+// 打印样式
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .page-container {
+    padding: 0;
+  }
+  
+  .card {
+    box-shadow: none;
+    border: 1px solid #ddd;
+  }
+}
+
+// 高对比度模式
+@media (prefers-contrast: high) {
+  :root {
+    --border-card: rgba(0, 0, 0, 0.3);
+    --shadow-card: none;
+  }
+  
+  .card {
+    border-width: 2px;
+  }
+}
+
+// 减少动画模式
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+// 横屏模式
+@media (orientation: landscape) and (max-height: 600px) {
+  .page-header {
+    margin-bottom: var(--spacing-sm);
+  }
+  
+  .page-title {
+    font-size: 20px !important;
+  }
+}

@@ -1,0 +1,78 @@
+/* Element Plus Global Overrides */
+
+/* Radius Variables Override */
+:root {
+  --el-border-radius-base: 12px;
+  --el-border-radius-small: 8px;
+  --el-border-radius-round: 26px;
+}
+
+/* Button */
+.el-button {
+  font-weight: 600;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  
+  &:hover {
+    transform: translateY(-1px);
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+/* Input */
+.el-input__wrapper {
+  border-radius: var(--radius-input);
+  box-shadow: none !important;
+  border: 1px solid transparent; /* Default border invisible */
+  background: rgba(148, 163, 184, 0.08);
+  transition: all 0.3s ease;
+  padding: 8px 12px;
+  
+  &:hover {
+    background: rgba(148, 163, 184, 0.12);
+  }
+  
+  &.is-focus {
+    background: var(--bg-elevated);
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 4px var(--accent-soft) !important;
+  }
+}
+
+/* Dialog */
+.el-dialog {
+  border-radius: var(--radius-card);
+  background: var(--bg-elevated); /* Fallback */
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  
+  /* Glass effect if supported */
+  @supports (backdrop-filter: blur(20px)) {
+    background: var(--glass-bg-light);
+    backdrop-filter: blur(20px);
+  }
+}
+
+/* Dark Mode Overrides */
+[data-theme='dark'] {
+  .el-input__wrapper {
+    background: rgba(30, 41, 59, 0.6);
+    
+    &:hover {
+      background: rgba(30, 41, 59, 0.8);
+    }
+    
+    &.is-focus {
+      background: rgba(30, 41, 59, 1);
+    }
+  }
+  
+  .el-dialog {
+    @supports (backdrop-filter: blur(20px)) {
+      background: var(--glass-bg-dark);
+    }
+  }
+}
