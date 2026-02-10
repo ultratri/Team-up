@@ -118,25 +118,6 @@
           <div class="mentor-info-section">
             <h2 class="mentor-name-large">{{ selectedMentor.realName }}</h2>
             <p class="mentor-dept-large">{{ selectedMentor.department }} · {{ selectedMentor.major }}</p>
-            
-            <div class="mentor-badges">
-              <span class="badge badge-success">
-                <el-icon><Medal /></el-icon>
-                认证导师
-              </span>
-            </div>
-
-            <div class="mentor-stats-inline">
-              <div class="stat-inline-item">
-                <span class="stat-inline-value">{{ selectedMentor.totalMentees || 0 }}</span>
-                <span class="stat-inline-label">累计学员</span>
-              </div>
-              <div class="stat-inline-divider"></div>
-              <div class="stat-inline-item">
-                <span class="stat-inline-value">{{ selectedMentor.activeMentees || 0 }}</span>
-                <span class="stat-inline-label">正在指导</span>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -162,6 +143,9 @@
                 <el-icon class="block-icon"><MagicStick /></el-icon>
                 <span>技能专长</span>
               </div>
+              <span class="skill-count" v-if="!loadingSkills && mentorSkills.length > 0">
+                {{ mentorSkills.length }} 项技能
+              </span>
             </div>
             <div class="block-content">
               <!-- 加载中 -->
@@ -188,6 +172,120 @@
               <div v-else class="no-skills">
                 <el-icon><InfoFilled /></el-icon>
                 <span>该导师还未添加技能标签</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 兴趣领域 -->
+          <div class="content-block">
+            <div class="block-header">
+              <div class="block-title">
+                <el-icon class="block-icon"><Connection /></el-icon>
+                <span>兴趣领域</span>
+              </div>
+              <span class="skill-count" v-if="!loadingOtherTags && mentorInterests.length > 0">
+                {{ mentorInterests.length }} 个兴趣
+              </span>
+            </div>
+            <div class="block-content">
+              <!-- 加载中 -->
+              <div v-if="loadingOtherTags" class="skills-loading">
+                <el-icon class="is-loading"><Loading /></el-icon>
+                <span>加载标签中...</span>
+              </div>
+              
+              <!-- 兴趣列表 -->
+              <div v-else-if="mentorInterests.length > 0" class="skills-showcase">
+                <div 
+                  v-for="(tag, index) in mentorInterests" 
+                  :key="index" 
+                  class="skill-chip interest-chip"
+                  :style="{ animationDelay: `${index * 0.05}s` }"
+                >
+                  <span class="skill-chip-text">{{ tag.tagName }}</span>
+                </div>
+              </div>
+              
+              <!-- 无兴趣 -->
+              <div v-else class="no-skills">
+                <el-icon><InfoFilled /></el-icon>
+                <span>该导师还未添加兴趣标签</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 个人特质 -->
+          <div class="content-block">
+            <div class="block-header">
+              <div class="block-title">
+                <el-icon class="block-icon"><MagicStick /></el-icon>
+                <span>个人特质</span>
+              </div>
+              <span class="skill-count" v-if="!loadingOtherTags && mentorPersonalities.length > 0">
+                {{ mentorPersonalities.length }} 项特质
+              </span>
+            </div>
+            <div class="block-content">
+              <!-- 加载中 -->
+              <div v-if="loadingOtherTags" class="skills-loading">
+                <el-icon class="is-loading"><Loading /></el-icon>
+                <span>加载标签中...</span>
+              </div>
+              
+              <!-- 特质列表 -->
+              <div v-else-if="mentorPersonalities.length > 0" class="skills-showcase">
+                <div 
+                  v-for="(tag, index) in mentorPersonalities" 
+                  :key="index" 
+                  class="skill-chip personality-chip"
+                  :style="{ animationDelay: `${index * 0.05}s` }"
+                >
+                  <span class="skill-chip-text">{{ tag.tagName }}</span>
+                </div>
+              </div>
+              
+              <!-- 无特质 -->
+              <div v-else class="no-skills">
+                <el-icon><InfoFilled /></el-icon>
+                <span>该导师还未添加个人特质标签</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 偏好类型 -->
+          <div class="content-block">
+            <div class="block-header">
+              <div class="block-title">
+                <el-icon class="block-icon"><Star /></el-icon>
+                <span>偏好类型</span>
+              </div>
+              <span class="skill-count" v-if="!loadingOtherTags && mentorProjectTypes.length > 0">
+                {{ mentorProjectTypes.length }} 种类型
+              </span>
+            </div>
+            <div class="block-content">
+              <!-- 加载中 -->
+              <div v-if="loadingOtherTags" class="skills-loading">
+                <el-icon class="is-loading"><Loading /></el-icon>
+                <span>加载标签中...</span>
+              </div>
+              
+              <!-- 类型列表 -->
+              <div v-else-if="mentorProjectTypes.length > 0" class="skills-showcase">
+                <div 
+                  v-for="(tag, index) in mentorProjectTypes" 
+                  :key="index" 
+                  class="skill-chip type-chip"
+                  :style="{ animationDelay: `${index * 0.05}s` }"
+                >
+                  <span class="skill-chip-text">{{ tag.tagName }}</span>
+                </div>
+              </div>
+              
+              <!-- 无类型 -->
+              <div v-else class="no-skills">
+                <el-icon><InfoFilled /></el-icon>
+                <span>该导师还未添加偏好类型标签</span>
               </div>
             </div>
           </div>
@@ -241,9 +339,10 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Search, Close, Star, User, MagicStick, Trophy, Medal, Loading, InfoFilled } from '@element-plus/icons-vue'
+import { Search, Close, Star, User, MagicStick, Trophy, Medal, Loading, InfoFilled, Connection } from '@element-plus/icons-vue'
 import { getMentorPlaza, type MentorCard as MentorCardType } from '@/api/mentor'
 import { getUserSkills } from '@/api/profile'
+import { request } from '@/utils/request'
 import type { UserSkill } from '@/types/user'
 import MentorCard from '@/components/mentor/MentorCard.vue'
 import MarkdownViewer from '@/components/common/MarkdownViewer.vue'
@@ -271,6 +370,12 @@ const showDetailDialog = ref(false)
 const selectedMentor = ref<MentorCardType | null>(null)
 const mentorSkills = ref<UserSkill[]>([])
 const loadingSkills = ref(false)
+
+// 导师的其他标签
+const mentorInterests = ref<any[]>([])
+const mentorPersonalities = ref<any[]>([])
+const mentorProjectTypes = ref<any[]>([])
+const loadingOtherTags = ref(false)
 
 const loadMentors = async () => {
   loading.value = true
@@ -318,6 +423,27 @@ const handleViewDetail = async (mentor: MentorCardType) => {
     console.error('获取导师技能失败:', error)
   } finally {
     loadingSkills.value = false
+  }
+
+  // 获取导师的其他标签（兴趣、性格、项目类型）
+  mentorInterests.value = []
+  mentorPersonalities.value = []
+  mentorProjectTypes.value = []
+  loadingOtherTags.value = true
+  try {
+    const [interestsRes, personalitiesRes, projectTypesRes] = await Promise.all([
+      request.get(`/api/user-tags/${mentor.id}/tags/INTEREST`),
+      request.get(`/api/user-tags/${mentor.id}/tags/PERSONALITY`),
+      request.get(`/api/user-tags/${mentor.id}/tags/PROJECT_TYPE`)
+    ])
+    
+    if (interestsRes?.data) mentorInterests.value = interestsRes.data
+    if (personalitiesRes?.data) mentorPersonalities.value = personalitiesRes.data
+    if (projectTypesRes?.data) mentorProjectTypes.value = projectTypesRes.data
+  } catch (error) {
+    console.error('获取导师其他标签失败:', error)
+  } finally {
+    loadingOtherTags.value = false
   }
 }
 
@@ -479,6 +605,10 @@ onMounted(() => {
     box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
   }
 
+  .mentor-info-section {
+    flex: 1;
+  }
+
   .mentor-name-large { 
     font-size: 36px; 
     font-weight: 900; 
@@ -489,35 +619,7 @@ onMounted(() => {
   .mentor-dept-large { 
     font-size: 16px; 
     color: var(--text-color-muted); 
-    margin: 0 0 20px; 
-  }
-
-  .mentor-badges {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 24px;
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 14px;
-      border-radius: 100px;
-      font-size: 13px;
-      font-weight: 600;
-      &.badge-success { background: rgba(16, 185, 129, 0.1); color: #10b981; }
-    }
-  }
-
-  .mentor-stats-inline {
-    display: flex;
-    gap: 32px;
-    .stat-inline-item {
-      display: flex;
-      flex-direction: column;
-      .stat-inline-value { font-size: 24px; font-weight: 900; color: var(--text-color); }
-      .stat-inline-label { font-size: 12px; color: var(--text-color-muted); text-transform: uppercase; letter-spacing: 0.05em; }
-    }
-    .stat-inline-divider { width: 1px; height: 40px; background: var(--border-subtle); }
+    margin: 0; 
   }
 
   .mentor-content-area {
@@ -548,6 +650,12 @@ onMounted(() => {
       line-height: 1.8; 
       color: var(--text-color-muted); 
     }
+  }
+
+  .skill-count {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-color-muted);
   }
 
   .skills-loading {
@@ -611,6 +719,39 @@ onMounted(() => {
         &:hover { 
           border-color: #94a3b8; 
           color: #94a3b8; 
+        }
+      }
+      
+      /* 兴趣标签 */
+      &.interest-chip {
+        border-color: rgba(16, 185, 129, 0.3);
+        background: rgba(16, 185, 129, 0.05);
+        &:hover { 
+          border-color: #10b981; 
+          color: #10b981; 
+          background: rgba(16, 185, 129, 0.1);
+        }
+      }
+      
+      /* 个人特质标签 */
+      &.personality-chip {
+        border-color: rgba(139, 92, 246, 0.3);
+        background: rgba(139, 92, 246, 0.05);
+        &:hover { 
+          border-color: #8b5cf6; 
+          color: #8b5cf6; 
+          background: rgba(139, 92, 246, 0.1);
+        }
+      }
+      
+      /* 项目类型标签 */
+      &.type-chip {
+        border-color: rgba(245, 158, 11, 0.3);
+        background: rgba(245, 158, 11, 0.05);
+        &:hover { 
+          border-color: #f59e0b; 
+          color: #f59e0b; 
+          background: rgba(245, 158, 11, 0.1);
         }
       }
     }

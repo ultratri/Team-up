@@ -8,8 +8,10 @@ import com.teamup.server.modules.mentor.mapper.MentorPerformanceMapper;
 import com.teamup.server.modules.mentor.vo.MentorCardVO;
 import com.teamup.server.modules.user.entity.User;
 import com.teamup.server.modules.user.entity.UserProfile;
+import com.teamup.server.modules.user.entity.UserRole;
 import com.teamup.server.modules.user.mapper.UserMapper;
 import com.teamup.server.modules.user.mapper.UserProfileMapper;
+import com.teamup.server.modules.user.mapper.UserRoleMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StringUtils;
@@ -31,6 +33,7 @@ public class MentorRelationshipController {
 
     private final UserMapper userMapper;
     private final UserProfileMapper profileMapper;
+    private final UserRoleMapper roleMapper;
     private final MentorPerformanceMapper performanceMapper;
 
     /**
@@ -51,28 +54,23 @@ public class MentorRelationshipController {
         
         log.info("获取导师列表: page={}, size={}, department={}, keyword={}", page, size, department, keyword);
         
-        // 1. 查询所有导师用户
-        LambdaQueryWrapper<User> userQuery = new LambdaQueryWrapper<>();
-        userQuery.eq(User::getRole, "MENTOR");
+        // 1. 从 user_roles 表查询所有导师用户ID
+        List<Long> mentorUserIds = roleMapper.selectList(
+            new LambdaQueryWrapper<UserRole>()
+                .eq(UserRole::getRoleName, "MENTOR")
+        ).stream().map(UserRole::getUserId).collect(Collectors.toList());
         
-        Page<User> userPage = new Page<>(page, size);
-        userMapper.selectPage(userPage, userQuery);
-        
-        List<User> mentorUsers = userPage.getRecords();
-        log.info("查询到 {} 位导师用户", mentorUsers.size());
-        
-        if (mentorUsers.isEmpty()) {
+        if (mentorUserIds.isEmpty()) {
+            log.info("没有找到导师用户");
             Page<MentorCardVO> emptyPage = new Page<>(page, size, 0);
             return Result.success(emptyPage);
         }
         
-        // 2. 查询导师的Profile信息
-        List<Long> mentorIds = mentorUsers.stream()
-            .map(User::getId)
-            .collect(Collectors.toList());
+        log.info("找到 {} 位导师用户ID", mentorUserIds.size());
         
+        // 2. 查询导师的Profile信息（带筛选条件）
         LambdaQueryWrapper<UserProfile> profileQuery = new LambdaQueryWrapper<>();
-        profileQuery.in(UserProfile::getUserId, mentorIds);
+        profileQuery.in(UserProfile::getUserId, mentorUserIds);
         
         if (StringUtils.hasText(department)) {
             profileQuery.eq(UserProfile::getDepartment, department);
@@ -88,20 +86,35 @@ public class MentorRelationshipController {
         List<UserProfile> profiles = profileMapper.selectList(profileQuery);
         log.info("查询到 {} 条导师Profile", profiles.size());
         
-        Map<Long, UserProfile> profileMap = profiles.stream()
-            .collect(Collectors.toMap(UserProfile::getUserId, p -> p));
+        if (profiles.isEmpty()) {
+            Page<MentorCardVO> emptyPage = new Page<>(page, size, 0);
+            return Result.success(emptyPage);
+        }
         
-        // 3. 查询导师绩效数据
+        // 3. 获取这些Profile对应的用户ID
+        List<Long> profileUserIds = profiles.stream()
+            .map(UserProfile::getUserId)
+            .collect(Collectors.toList());
+        
+        // 4. 查询用户基本信息
+        Map<Long, User> userMap = userMapper.selectList(
+            new LambdaQueryWrapper<User>()
+                .in(User::getId, profileUserIds)
+        ).stream().collect(Collectors.toMap(User::getId, u -> u));
+        
+        // 5. 查询导师绩效数据
         Map<Long, MentorPerformance> performanceMap = performanceMapper.selectList(
             new LambdaQueryWrapper<MentorPerformance>()
-                .in(MentorPerformance::getMentorId, mentorIds)
+                .in(MentorPerformance::getMentorId, profileUserIds)
         ).stream().collect(Collectors.toMap(MentorPerformance::getMentorId, p -> p));
         
-        // 4. 组装VO（只包含有Profile的导师）
-        List<MentorCardVO> mentorCards = mentorUsers.stream()
-            .filter(user -> profileMap.containsKey(user.getId()))
-            .map(user -> {
-                UserProfile profile = profileMap.get(user.getId());
+        // 6. 组装VO
+        List<MentorCardVO> mentorCards = profiles.stream()
+            .map(profile -> {
+                User user = userMap.get(profile.getUserId());
+                if (user == null) {
+                    return null;
+                }
                 
                 MentorCardVO vo = new MentorCardVO();
                 vo.setId(user.getId());
@@ -136,13 +149,19 @@ public class MentorRelationshipController {
                 
                 return vo;
             })
+            .filter(vo -> vo != null)
             .collect(Collectors.toList());
         
-        // 5. 构建分页结果
-        Page<MentorCardVO> resultPage = new Page<>(page, size, mentorCards.size());
-        resultPage.setRecords(mentorCards);
+        // 7. 手动分页
+        int start = (page - 1) * size;
+        int end = Math.min(start + size, mentorCards.size());
+        List<MentorCardVO> pagedCards = mentorCards.subList(start, end);
         
-        log.info("返回导师列表: total={}, records={}", resultPage.getTotal(), mentorCards.size());
+        // 8. 构建分页结果
+        Page<MentorCardVO> resultPage = new Page<>(page, size, mentorCards.size());
+        resultPage.setRecords(pagedCards);
+        
+        log.info("返回导师列表: total={}, records={}", resultPage.getTotal(), pagedCards.size());
         return Result.success(resultPage);
     }
 }
