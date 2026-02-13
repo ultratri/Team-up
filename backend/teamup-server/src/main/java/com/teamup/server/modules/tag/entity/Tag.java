@@ -21,9 +21,9 @@ public class Tag {
     private String name;
     
     /**
-     * 标签分类
+     * 标签分类（存储为字符串：SKILL, INTEREST, PERSONALITY, PROJECT_TYPE）
      */
-    private TagCategory category;
+    private String category;
     
     /**
      * 父标签ID
@@ -46,9 +46,9 @@ public class Tag {
     private Boolean isOfficial;
     
     /**
-     * 状态
+     * 状态（存储为字符串：ACTIVE, DEPRECATED, MERGED）
      */
-    private TagStatus status;
+    private String status;
     
     /**
      * 合并到的标签ID

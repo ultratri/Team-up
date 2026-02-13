@@ -38,10 +38,10 @@ public class UserController {
     /**
      * 根据学号获取用户
      */
-    @GetMapping("/student/{studentId}")
+    @GetMapping("/user-code/{userCode}")
     @PreAuthorize("isAuthenticated()")
-    public Result<User> getUserByStudentId(@PathVariable String studentId) {
-        User user = userService.getUserByStudentId(studentId);
+    public Result<User> getUserByUserCode(@PathVariable String userCode) {
+        User user = userService.getUserByUserCode(userCode);
         return Result.success(user);
     }
 

@@ -148,10 +148,20 @@ public class TeamJoinApplicationServiceImpl extends ServiceImpl<TeamJoinApplicat
         if (team == null) {
             throw new RuntimeException("团队不存在");
         }
+        
+        // 添加详细日志
+        System.out.println("=== listForTeam 权限检查 ===");
+        System.out.println("teamId: " + teamId);
+        System.out.println("operatorId: " + operatorId + " (类型: " + (operatorId != null ? operatorId.getClass().getName() : "null") + ")");
+        System.out.println("team.getLeaderId(): " + team.getLeaderId() + " (类型: " + (team.getLeaderId() != null ? team.getLeaderId().getClass().getName() : "null") + ")");
+        System.out.println("operatorId.equals(team.getLeaderId()): " + (operatorId != null && operatorId.equals(team.getLeaderId())));
+        
         // 仅队长可查看
         if (!operatorId.equals(team.getLeaderId())) {
+            System.out.println("权限检查失败！抛出异常");
             throw new RuntimeException("无权查看该队伍的加入申请");
         }
+        System.out.println("权限检查通过！");
 
         Page<TeamJoinApplication> pageParam = new Page<>(page, size);
         LambdaQueryWrapper<TeamJoinApplication> wrapper = new LambdaQueryWrapper<>();

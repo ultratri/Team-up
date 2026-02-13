@@ -3,7 +3,7 @@ import type { ApiResult } from './auth'
 
 export interface User {
   id: number
-  studentId: string
+  userCode: string
   username: string
   email: string
   phone?: string
@@ -32,7 +32,7 @@ export interface UserListQuery {
 }
 
 export interface UserCreateRequest {
-  studentId: string
+  userCode: string
   username: string
   password: string
   email: string
@@ -41,7 +41,7 @@ export interface UserCreateRequest {
 }
 
 export interface UserUpdateRequest {
-  studentId?: string
+  userCode?: string
   username?: string
   password?: string
   email?: string
@@ -170,4 +170,112 @@ export async function searchUsers(keyword: string, limit = 10): Promise<User[]> 
   }
 
   return []
+}
+
+// 组队意向相关接口
+export interface UserAvailabilityVO {
+  isAvailable: boolean
+  intentions: string[]
+  visibility: string
+  availableFrom?: string
+  availableUntil?: string
+  weeklyHours?: number
+  notes?: string
+}
+
+export interface UserAvailabilityRequest {
+  isAvailable: boolean
+  intentions: string[]
+  visibility: string
+  availableFrom?: string
+  availableUntil?: string
+  weeklyHours?: number
+  notes?: string
+}
+
+/**
+ * 获取当前用户的组队意向
+ */
+export async function getUserAvailability(): Promise<UserAvailabilityVO> {
+  const res = await request.get<any>('/user/availability')
+  if (res && typeof res === 'object') {
+    if ('code' in res) {
+      if (res.code === 200 && res.data) return res.data
+      throw new Error(res.message || '获取组队意向失败')
+    }
+    return res
+  }
+  throw new Error('获取组队意向失败')
+}
+
+/**
+ * 更新当前用户的组队意向
+ */
+export async function updateUserAvailability(data: UserAvailabilityRequest): Promise<void> {
+  const res = await request.put<any>('/user/availability', data)
+  if (res && typeof res === 'object' && 'code' in res) {
+    if (res.code === 200) return
+    throw new Error(res.message || '更新组队意向失败')
+  }
+}
+
+// 人才墙相关接口
+export interface TalentVO {
+  id: number
+  username: string
+  realName: string
+  avatarUrl?: string
+  department: string
+  major: string
+  bio?: string
+  projectExperience?: string
+  creditScore?: number
+  skills: string[]
+  intentions: string[]
+  weeklyHours?: number
+  notes?: string
+  lastLoginAt?: string
+  status?: string
+  visibility?: string
+  availableFrom?: string
+  availableUntil?: string
+  email?: string
+  phone?: string
+  wechat?: string
+  qq?: string
+}
+
+export interface TalentListQuery {
+  page?: number
+  size?: number
+  department?: string
+  keyword?: string
+  intention?: string
+}
+
+/**
+ * 获取人才列表
+ */
+export async function getTalentList(params?: TalentListQuery): Promise<PageResult<TalentVO>> {
+  const res = await request.get<any>('/talents', { params })
+  if (res && typeof res === 'object') {
+    if ('code' in res && res.code === 200 && res.data) {
+      const data = res.data as any
+      return {
+        records: data.records || [],
+        total: data.total || 0,
+        current: data.current || params?.page || 1,
+        size: data.size || params?.size || 12
+      }
+    }
+    if ('records' in res) {
+      return {
+        records: res.records || [],
+        total: res.total || 0,
+        current: res.current || params?.page || 1,
+        size: res.size || params?.size || 12
+      }
+    }
+  }
+  return { records: [], total: 0, current: params?.page || 1, size: params?.size || 12 }
 }

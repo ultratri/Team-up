@@ -37,6 +37,7 @@ const isEditing = ref(false)
 const showSkillDialog = ref(false)
 const showTagDialog = ref(false)
 const currentTagCategory = ref<'INTEREST' | 'PERSONALITY' | 'PROJECT_TYPE'>('INTEREST')
+const profileFormRef = ref<any>()
 
 // Skills & Tags state
 const availableTags = ref<any[]>([])
@@ -68,6 +69,18 @@ const userProfile = reactive<Partial<UserProfile>>({
 })
 
 const userSkills = ref<UserSkill[]>([])
+
+// 表单验证规则
+const profileRules = {
+  realName: [{ required: true, message: '请输入真实姓名', trigger: 'blur' }],
+  department: [{ required: true, message: '请选择院系', trigger: 'change' }],
+  major: [{ required: true, message: '请选择专业', trigger: 'change' }],
+  grade: [{ required: true, message: '请选择年级', trigger: 'change' }],
+  wechat: [{ required: true, message: '请输入微信号', trigger: 'blur' }],
+  qq: [{ required: true, message: '请输入QQ号', trigger: 'blur' }],
+  bio: [{ required: true, message: '请输入个人简介', trigger: 'blur' }],
+  projectExperience: [{ required: true, message: '请输入项目经验', trigger: 'blur' }],
+}
 
 // Smart truncation that respects word boundaries
 const truncateText = (text: string | undefined, maxLength: number): string | undefined => {
@@ -158,9 +171,9 @@ const loadProfile = async () => {
     const [profileRes, skillsRes, interestsRes, personalitiesRes, projectTypesRes] = await Promise.all([
       getProfile(authStore.user.id),
       getUserSkills(authStore.user.id),
-      request.get(`/api/user-tags/${authStore.user.id}/tags/INTEREST`),
-      request.get(`/api/user-tags/${authStore.user.id}/tags/PERSONALITY`),
-      request.get(`/api/user-tags/${authStore.user.id}/tags/PROJECT_TYPE`)
+      request.get(`/user-tags/${authStore.user.id}/tags/INTEREST`),
+      request.get(`/user-tags/${authStore.user.id}/tags/PERSONALITY`),
+      request.get(`/user-tags/${authStore.user.id}/tags/PROJECT_TYPE`)
     ])
     
     if (profileRes?.data) Object.assign(userProfile, profileRes.data)
@@ -176,25 +189,41 @@ const loadProfile = async () => {
   }
 }
 
-const loadAvailableTags = () => request.get('/api/tags/skills').then(res => availableTags.value = res.data || [])
-const loadAvailableInterests = () => request.get('/api/tags/interests').then(res => availableInterests.value = res.data || [])
-const loadAvailablePersonalities = () => request.get('/api/tags/personalities').then(res => availablePersonalities.value = res.data || [])
-const loadAvailableProjectTypes = () => request.get('/api/tags/project-types').then(res => availableProjectTypes.value = res.data || [])
+const loadAvailableTags = () => request.get('/tags/skills').then(res => availableTags.value = res.data || [])
+const loadAvailableInterests = () => request.get('/tags/interests').then(res => availableInterests.value = res.data || [])
+const loadAvailablePersonalities = () => request.get('/tags/personalities').then(res => availablePersonalities.value = res.data || [])
+const loadAvailableProjectTypes = () => request.get('/tags/project-types').then(res => availableProjectTypes.value = res.data || [])
 
 const handleSave = async () => {
+  if (!authStore.user?.id) return
+  
+  // 验证表单
+  if (!profileFormRef.value) return
+  
+  try {
+    await profileFormRef.value.validate()
+  } catch (error) {
+    ElMessage.warning('请填写所有必填项')
+    return
+  }
+
   loading.value = true
   try {
-    if (authStore.user?.id) {
-      const updatedProfile = await updateProfile(authStore.user.id, userProfile)
-      if (updatedProfile.data) {
-        authStore.setUser({ ...authStore.user, profile: updatedProfile.data })
-      }
-      ElMessage.success('个人资料已更新')
-      isEditing.value = false
-      await loadProfile()
+    const updatedProfile = await updateProfile(authStore.user.id, userProfile)
+    if (updatedProfile.data) {
+      // 更新 auth store 中的用户信息
+      authStore.setUser({ ...authStore.user, profile: updatedProfile.data })
     }
+    
+    // 刷新用户信息（确保 localStorage 同步）
+    await authStore.refreshUserInfo()
+    
+    ElMessage.success('个人资料已更新')
+    isEditing.value = false
+    await loadProfile()
   } catch (error) {
     console.error(error)
+    ElMessage.error('保存失败，请重试')
   } finally {
     loading.value = false
   }
@@ -213,7 +242,7 @@ const handleCloseTag = async (skill: UserSkill) => {
 const handleAddSkill = async () => {
   if (!selectedSkill.value.tagId || !authStore.user?.id) return
   try {
-    await request.post(`/api/user-tags/${authStore.user.id}/skills`, selectedSkill.value)
+    await request.post(`/user-tags/${authStore.user.id}/skills`, selectedSkill.value)
     ElMessage.success('技能添加成功')
     showSkillDialog.value = false
     await loadProfile()
@@ -225,7 +254,7 @@ const handleAddSkill = async () => {
 const handleAddTag = async () => {
   if (!selectedTag.value || !authStore.user?.id) return
   try {
-    await request.post(`/api/user-tags/${authStore.user.id}/tags`, { tagId: selectedTag.value })
+    await request.post(`/user-tags/${authStore.user.id}/tags`, { tagId: selectedTag.value })
     ElMessage.success('标签添加成功')
     showTagDialog.value = false
     await loadProfile()
@@ -236,7 +265,7 @@ const handleAddTag = async () => {
 
 const handleRemoveTag = async (tagId: number) => {
   try {
-    await request.delete(`/api/user-tags/tags/${tagId}`)
+    await request.delete(`/user-tags/tags/${tagId}`)
     await loadProfile()
   } catch (error) {
     ElMessage.error('移除失败')
@@ -474,28 +503,28 @@ onMounted(loadProfile)
     </el-dialog>
 
     <!-- Edit Profile Dialog -->
-    <el-dialog v-model="isEditing" title="重塑个人品牌" width="620px" class="portfolio-dialog">
-      <el-form :model="userProfile" label-position="top" class="edit-form">
+    <el-dialog v-model="isEditing" title="完善个人资料" width="620px" class="portfolio-dialog">
+      <el-form :model="userProfile" :rules="profileRules" ref="profileFormRef" label-position="top" class="edit-form">
         <div class="form-hero">
           <ImageUpload v-model="authStore.user.avatar" type="avatar" />
           <div class="form-hero-info">
-            <el-form-item label="真实姓名">
-              <el-input v-model="userProfile.realName" placeholder="展示你的名字" />
+            <el-form-item label="真实姓名" prop="realName" required>
+              <el-input v-model="userProfile.realName" placeholder="请输入你的真实姓名" />
             </el-form-item>
           </div>
         </div>
         
-        <el-form-item label="一句话简介">
-          <el-input v-model="userProfile.bio" type="textarea" :rows="3" placeholder="写下你的愿景或核心价值..." />
+        <el-form-item label="个人简介" prop="bio" required>
+          <el-input v-model="userProfile.bio" type="textarea" :rows="3" placeholder="简单介绍一下自己..." />
         </el-form-item>
         
         <div class="form-row">
-          <el-form-item label="院系" class="flex-1">
+          <el-form-item label="院系" prop="department" class="flex-1" required>
             <el-select v-model="userProfile.department" filterable @change="handleDepartmentChange">
               <el-option v-for="dept in departments" :key="dept" :label="dept" :value="dept" />
             </el-select>
           </el-form-item>
-          <el-form-item label="专业" class="flex-1">
+          <el-form-item label="专业" prop="major" class="flex-1" required>
             <el-select v-model="userProfile.major" filterable :disabled="!userProfile.department">
               <el-option v-for="major in majorsForDepartment" :key="major" :label="major" :value="major" />
             </el-select>
@@ -503,21 +532,25 @@ onMounted(loadProfile)
         </div>
 
         <div class="form-row">
-          <el-form-item label="年级" class="flex-1">
+          <el-form-item label="年级" prop="grade" class="flex-1" required>
             <el-input-number v-model="userProfile.grade" :min="1" :max="5" class="full-width" />
           </el-form-item>
-          <el-form-item label="微信号" class="flex-1">
-            <el-input v-model="userProfile.wechat" placeholder="公开联系方式" />
+          <el-form-item label="微信号" prop="wechat" class="flex-1" required>
+            <el-input v-model="userProfile.wechat" placeholder="方便队友联系你" />
           </el-form-item>
         </div>
 
-        <el-form-item label="核心项目经历">
-          <el-input v-model="userProfile.projectExperience" type="textarea" :rows="4" placeholder="描述你的成就与贡献..." />
+        <el-form-item label="QQ号" prop="qq" required>
+          <el-input v-model="userProfile.qq" placeholder="请输入QQ号" />
+        </el-form-item>
+
+        <el-form-item label="项目经历" prop="projectExperience" required>
+          <el-input v-model="userProfile.projectExperience" type="textarea" :rows="4" placeholder="分享你参与过的项目经历..." />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="isEditing = false" round>取消</el-button>
-        <el-button type="primary" @click="handleSave" :loading="loading" round>保存品牌形象</el-button>
+        <el-button type="primary" @click="handleSave" :loading="loading" round>保存</el-button>
       </template>
     </el-dialog>
   </div>

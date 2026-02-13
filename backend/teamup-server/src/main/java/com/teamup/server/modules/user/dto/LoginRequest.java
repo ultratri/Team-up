@@ -9,7 +9,7 @@ import jakarta.validation.constraints.NotBlank;
 @Data
 public class LoginRequest {
     @NotBlank(message = "学号/工号不能为空")
-    private String studentId;
+    private String userCode;
     
     @NotBlank(message = "密码不能为空")
     private String password;

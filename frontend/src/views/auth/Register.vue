@@ -32,9 +32,9 @@
           class="auth-form"
           @submit.prevent="handleRegister"
         >
-          <el-form-item prop="studentId" :label="registerForm.role === 'MENTOR' ? '工号' : '学号'">
+          <el-form-item prop="userCode" :label="registerForm.role === 'MENTOR' ? '工号' : '学号'">
             <el-input 
-              v-model="registerForm.studentId" 
+              v-model="registerForm.userCode" 
               :placeholder="registerForm.role === 'MENTOR' ? '请输入工号' : '请输入学号'"
               :prefix-icon="Collection"
               autocomplete="username"
@@ -161,7 +161,7 @@ const loading = ref(false)
 const agreed = ref(false)
 
 const registerForm = reactive({
-  studentId: '',
+  userCode: '',
   username: '',
   email: '',
   password: '',
@@ -180,7 +180,7 @@ const validateConfirmPassword = (_rule: any, value: string, callback: any) => {
 }
 
 const rules = reactive<FormRules>({
-  studentId: [
+  userCode: [
     { 
       required: true, 
       message: () => registerForm.role === 'MENTOR' ? '请输入工号' : '请输入学号', 

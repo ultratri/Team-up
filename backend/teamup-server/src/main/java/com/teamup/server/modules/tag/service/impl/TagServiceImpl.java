@@ -37,7 +37,7 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag> implements TagSe
         LambdaQueryWrapper<Tag> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Tag::getName, dto.getName())
                .eq(Tag::getCategory, dto.getCategory())
-               .eq(Tag::getStatus, Tag.TagStatus.ACTIVE);
+               .eq(Tag::getStatus, "ACTIVE");
         
         if (tagMapper.selectCount(wrapper) > 0) {
             throw new BusinessException("该标签已存在");
@@ -50,7 +50,7 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag> implements TagSe
         tag.setParentId(dto.getParentId());
         tag.setDescription(dto.getDescription());
         tag.setIsOfficial(dto.getIsOfficial() != null ? dto.getIsOfficial() : false);
-        tag.setStatus(Tag.TagStatus.ACTIVE);
+        tag.setStatus("ACTIVE");
         tag.setUsageCount(0);
         tag.setCreatedBy(creatorId);
         
@@ -76,7 +76,7 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag> implements TagSe
             wrapper.eq(Tag::getName, dto.getName())
                    .eq(Tag::getCategory, dto.getCategory())
                    .ne(Tag::getId, tagId)
-                   .eq(Tag::getStatus, Tag.TagStatus.ACTIVE);
+                   .eq(Tag::getStatus, "ACTIVE");
             
             if (tagMapper.selectCount(wrapper) > 0) {
                 throw new BusinessException("标签名称已被使用");
@@ -111,7 +111,7 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag> implements TagSe
         }
         
         // 软删除：标记为已废弃
-        tag.setStatus(Tag.TagStatus.DEPRECATED);
+        tag.setStatus("DEPRECATED");
         tagMapper.updateById(tag);
         
         log.info("标签删除成功: tagId={}", tagId);
@@ -134,7 +134,7 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag> implements TagSe
         }
         
         // 更新源标签状态
-        sourceTag.setStatus(Tag.TagStatus.MERGED);
+        sourceTag.setStatus("MERGED");
         sourceTag.setMergedToId(dto.getTargetTagId());
         tagMapper.updateById(sourceTag);
         
@@ -149,11 +149,11 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag> implements TagSe
     }
     
     @Override
-    public Page<Tag> listTags(int page, int size, Tag.TagCategory category, String keyword) {
+    public Page<Tag> listTags(int page, int size, String category, String keyword) {
         Page<Tag> tagPage = new Page<>(page, size);
         LambdaQueryWrapper<Tag> wrapper = new LambdaQueryWrapper<>();
         
-        if (category != null) {
+        if (category != null && !category.isEmpty()) {
             wrapper.eq(Tag::getCategory, category);
         }
         
@@ -161,7 +161,7 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag> implements TagSe
             wrapper.like(Tag::getName, keyword);
         }
         
-        wrapper.eq(Tag::getStatus, Tag.TagStatus.ACTIVE)
+        wrapper.eq(Tag::getStatus, "ACTIVE")
                .orderByDesc(Tag::getUsageCount);
         
         return tagMapper.selectPage(tagPage, wrapper);
@@ -182,14 +182,14 @@ public class TagServiceImpl extends ServiceImpl<TagMapper, Tag> implements TagSe
     }
     
     @Override
-    public List<Tag> getPopularTags(Tag.TagCategory category, int limit) {
+    public List<Tag> getPopularTags(String category, int limit) {
         LambdaQueryWrapper<Tag> wrapper = new LambdaQueryWrapper<>();
         
-        if (category != null) {
+        if (category != null && !category.isEmpty()) {
             wrapper.eq(Tag::getCategory, category);
         }
         
-        wrapper.eq(Tag::getStatus, Tag.TagStatus.ACTIVE)
+        wrapper.eq(Tag::getStatus, "ACTIVE")
                .orderByDesc(Tag::getUsageCount)
                .last("LIMIT " + limit);
         

@@ -47,7 +47,7 @@ public class UserServiceImpl implements UserService {
     public LoginResponse register(RegisterRequest request) {
         // 检查学号/工号是否已存在
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(User::getStudentId, request.getStudentId());
+        wrapper.eq(User::getUserCode, request.getUserCode());
         if (userMapper.selectCount(wrapper) > 0) {
             String roleHint = "MENTOR".equals(request.getRole()) ? "工号" : "学号";
             throw new BusinessException(roleHint + "已存在");
@@ -69,7 +69,7 @@ public class UserServiceImpl implements UserService {
 
         // 创建用户
         User user = new User();
-        user.setStudentId(request.getStudentId());
+        user.setUserCode(request.getUserCode());
         user.setUsername(request.getUsername());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setEmail(request.getEmail());
@@ -141,7 +141,7 @@ public class UserServiceImpl implements UserService {
     public LoginResponse login(LoginRequest request) {
         // 查找用户
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(User::getStudentId, request.getStudentId());
+        wrapper.eq(User::getUserCode, request.getUserCode());
         User user = userMapper.selectOne(wrapper);
         
         if (user == null) {
@@ -193,9 +193,9 @@ public class UserServiceImpl implements UserService {
                     new com.teamup.server.modules.user.vo.UserProfileVO();
                 BeanUtils.copyProperties(profile, profileVO);
                 userVO.setProfile(profileVO);
-                log.info("✅ 用户 {} 的profile已加载", user.getStudentId());
+                log.info("✅ 用户 {} 的profile已加载", user.getUserCode());
             } else {
-                log.warn("⚠️ 用户 {} 没有profile信息", user.getStudentId());
+                log.warn("⚠️ 用户 {} 没有profile信息", user.getUserCode());
             }
         } catch (Exception e) {
             log.error("❌ 加载用户profile失败: {}", e.getMessage());
@@ -223,9 +223,9 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public User getUserByStudentId(String studentId) {
+    public User getUserByUserCode(String userCode) {
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(User::getStudentId, studentId);
+        wrapper.eq(User::getUserCode, userCode);
         User user = userMapper.selectOne(wrapper);
         if (user != null) {
             user.setPassword(null);  // 不返回密码
@@ -241,7 +241,7 @@ public class UserServiceImpl implements UserService {
             wrapper.and(w -> w
                 .like(User::getUsername, kw)
                 .or()
-                .like(User::getStudentId, kw)
+                .like(User::getUserCode, kw)
                 .or()
                 .like(User::getEmail, kw)
             );
@@ -278,7 +278,7 @@ public class UserServiceImpl implements UserService {
             wrapper.and(w -> w
                 .like(User::getUsername, kw)
                 .or()
-                .like(User::getStudentId, kw)
+                .like(User::getUserCode, kw)
                 .or()
                 .like(User::getEmail, kw)
             );
@@ -311,11 +311,11 @@ public class UserServiceImpl implements UserService {
                         wrapper.orderBy(true, isAsc, User::getId);
                         log.info("Sorting by ID");
                         break;
-                    case "studentId":
-                        wrapper.orderBy(true, isAsc, User::getStudentId);
-                        // 二级排序：学号相同时按创建时间
+                    case "userCode":
+                        wrapper.orderBy(true, isAsc, User::getUserCode);
+                        // 二级排序：用户编号相同时按创建时间
                         wrapper.orderByDesc(User::getCreatedAt);
-                        log.info("Sorting by studentId with secondary sort by createdAt");
+                        log.info("Sorting by userCode with secondary sort by createdAt");
                         break;
                     case "username":
                         wrapper.orderBy(true, isAsc, User::getUsername);
@@ -398,7 +398,7 @@ public class UserServiceImpl implements UserService {
             wrapper.and(w -> w
                 .like(User::getUsername, kw)
                 .or()
-                .like(User::getStudentId, kw)
+                .like(User::getUserCode, kw)
                 .or()
                 .like(User::getEmail, kw)
             );
@@ -477,7 +477,7 @@ public class UserServiceImpl implements UserService {
     public User createUserByAdmin(RegisterRequest request) {
         // 检查学号/工号是否已存在
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(User::getStudentId, request.getStudentId());
+        wrapper.eq(User::getUserCode, request.getUserCode());
         if (userMapper.selectCount(wrapper) > 0) {
             String roleHint = "MENTOR".equals(request.getRole()) ? "工号" : "学号";
             throw new RuntimeException(roleHint + "已存在");
@@ -485,7 +485,7 @@ public class UserServiceImpl implements UserService {
 
         // 创建用户
         User user = new User();
-        user.setStudentId(request.getStudentId());
+        user.setUserCode(request.getUserCode());
         user.setUsername(request.getUsername());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setEmail(request.getEmail());
@@ -551,15 +551,15 @@ public class UserServiceImpl implements UserService {
         }
 
         // 更新基本信息
-        if (request.getStudentId() != null && !request.getStudentId().equals(user.getStudentId())) {
+        if (request.getUserCode() != null && !request.getUserCode().equals(user.getUserCode())) {
             // 检查新学号是否已存在
             LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-            wrapper.eq(User::getStudentId, request.getStudentId());
+            wrapper.eq(User::getUserCode, request.getUserCode());
             wrapper.ne(User::getId, id);
             if (userMapper.selectCount(wrapper) > 0) {
                 throw new RuntimeException("学号/工号已存在");
             }
-            user.setStudentId(request.getStudentId());
+            user.setUserCode(request.getUserCode());
         }
         
         if (request.getUsername() != null) {

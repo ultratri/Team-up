@@ -16,7 +16,8 @@ public class Notification {
     private Long id;
     
     private Long userId;
-    private String type;  // APPLICATION_REVIEWED, PROJECT_INVITATION, TEAM_ANNOUNCEMENT, SYSTEM
+    private String type;  // SYSTEM, APPLICATION_REVIEWED, etc. (对应数据库的type字段)
+    private String notificationType;  // APPLICATION_RESULT, TASK_ASSIGNED, etc. (对应数据库的notification_type字段)
     private String title;
     private String content;
     private String relatedType;  // PROJECT, TEAM, USER

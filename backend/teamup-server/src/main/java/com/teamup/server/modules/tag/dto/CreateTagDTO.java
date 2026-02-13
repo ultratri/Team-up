@@ -15,7 +15,7 @@ public class CreateTagDTO {
     private String name;
     
     @NotNull(message = "标签分类不能为空")
-    private Tag.TagCategory category;
+    private String category;
     
     private Long parentId;
     

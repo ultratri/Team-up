@@ -128,7 +128,8 @@ onMounted(async () => {
   loading.value = true
   try {
     // 加载实际数据
-    const res = await fetch('http://localhost:8080/stats/overview', {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
+    const res = await fetch(`${baseUrl}/stats/overview`, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       }

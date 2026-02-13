@@ -9,6 +9,7 @@ import com.teamup.server.modules.team.service.TeamService;
 import com.teamup.server.common.utils.Result;
 import com.teamup.server.modules.team.service.TeamStatisticsService;
 import com.teamup.server.modules.team.vo.TeamStatisticsVO;
+import com.teamup.server.modules.team.vo.TeamVO;
 import com.teamup.server.modules.user.security.UserContext;
 import com.teamup.server.modules.file.service.FileStorageService;
 import com.teamup.server.modules.user.entity.User;
@@ -19,6 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import com.teamup.server.modules.team.vo.TeamMemberVO;
 import java.util.Map;
@@ -54,8 +56,24 @@ public class TeamController {
     }
 
     @GetMapping("/user/{userId}")
-    public Result<List<Team>> getUserTeams(@PathVariable Long userId) {
-        return Result.success(teamService.getUserTeams(userId));
+    public Result<List<TeamVO>> getUserTeams(@PathVariable Long userId) {
+        List<Team> teams = teamService.getUserTeams(userId);
+        
+        // 转换为 TeamVO 并添加成员数量
+        List<TeamVO> teamVOs = teams.stream().map(team -> {
+            TeamVO vo = TeamVO.fromEntity(team);
+            
+            // 查询成员数量
+            com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<TeamMember> wrapper = 
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
+            wrapper.eq("team_id", team.getId());
+            Long memberCount = teamMemberMapper.selectCount(wrapper);
+            vo.setMemberCount(memberCount.intValue());
+            
+            return vo;
+        }).collect(Collectors.toList());
+        
+        return Result.success(teamVOs);
     }
 
     @PostMapping("/{teamId}/members")

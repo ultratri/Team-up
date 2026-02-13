@@ -10,7 +10,7 @@ import java.util.List;
 @Data
 public class UserVO {
     private Long id;
-    private String studentId;
+    private String userCode;
     private String username;
     private String email;
     private String phone;

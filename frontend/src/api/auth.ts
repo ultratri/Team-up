@@ -2,7 +2,7 @@ import { request } from '@utils/request'
 import type { User } from '../types/user'
 
 export interface LoginRequest {
-  studentId: string
+  userCode: string
   password: string
 }
 
@@ -18,7 +18,7 @@ export interface ApiResult<T> {
 }
 
 export interface RegisterRequest {
-  studentId: string
+  userCode: string
   username: string
   password: string
   email: string

@@ -35,7 +35,37 @@ public class ProfileServiceImpl implements ProfileService {
     public UserProfile getProfileByUserId(Long userId) {
         LambdaQueryWrapper<UserProfile> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(UserProfile::getUserId, userId);
-        return userProfileMapper.selectOne(wrapper);
+        UserProfile profile = userProfileMapper.selectOne(wrapper);
+        
+        // 自动修复 NULL 字段，确保前端不会因为 NULL 值导致问题
+        if (profile != null) {
+            if (profile.getBio() == null) {
+                profile.setBio("");
+            }
+            if (profile.getProjectExperience() == null) {
+                profile.setProjectExperience("");
+            }
+            if (profile.getGuidanceExperience() == null) {
+                profile.setGuidanceExperience("");
+            }
+            if (profile.getRealName() == null) {
+                profile.setRealName("");
+            }
+            if (profile.getDepartment() == null) {
+                profile.setDepartment("");
+            }
+            if (profile.getMajor() == null) {
+                profile.setMajor("");
+            }
+            if (profile.getWechat() == null) {
+                profile.setWechat("");
+            }
+            if (profile.getQq() == null) {
+                profile.setQq("");
+            }
+        }
+        
+        return profile;
     }
 
     @Override

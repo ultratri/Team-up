@@ -153,7 +153,7 @@ public class ImportService {
 
     private void importUserRow(Row row) {
         User user = new User();
-        user.setStudentId(getCellValue(row.getCell(1)));
+        user.setUserCode(getCellValue(row.getCell(1)));
         user.setUsername(getCellValue(row.getCell(2)));
         user.setEmail(getCellValue(row.getCell(3)));
         user.setPhone(getCellValue(row.getCell(4)));
@@ -164,7 +164,7 @@ public class ImportService {
         // 检查是否已存在（根据学号或邮箱）
         User existing = userMapper.selectOne(
             new LambdaQueryWrapper<User>()
-                .eq(User::getStudentId, user.getStudentId())
+                .eq(User::getUserCode, user.getUserCode())
         );
         
         if (existing != null) {
@@ -174,7 +174,7 @@ public class ImportService {
             userMapper.updateById(user);
         } else {
             // 新增用户时跳过（不导入新用户，因为涉及密码问题）
-            log.warn("跳过新用户导入: {}", user.getStudentId());
+            log.warn("跳过新用户导入: {}", user.getUserCode());
         }
     }
 
@@ -210,7 +210,13 @@ public class ImportService {
     private void importTeamRow(Row row) {
         Team team = new Team();
         team.setTeamName(getCellValue(row.getCell(1)));
-        team.setType(getCellValue(row.getCell(2)));
+        // 将type转换为team_nature：PROJECT->TEMPORARY, COMPETITION->LONG_TERM
+        String type = getCellValue(row.getCell(2));
+        if ("COMPETITION".equals(type)) {
+            team.setTeamNature("LONG_TERM");
+        } else {
+            team.setTeamNature("TEMPORARY");
+        }
         team.setDescription(getCellValue(row.getCell(3)));
         
         String leaderIdStr = getCellValue(row.getCell(4));
@@ -276,7 +282,7 @@ public class ImportService {
         if (line.length < 9) return;
         
         User user = new User();
-        user.setStudentId(line[1]);
+        user.setUserCode(line[1]);
         user.setUsername(line[2]);
         user.setEmail(line[3]);
         user.setPhone(line[4]);
@@ -286,7 +292,7 @@ public class ImportService {
         
         User existing = userMapper.selectOne(
             new LambdaQueryWrapper<User>()
-                .eq(User::getStudentId, user.getStudentId())
+                .eq(User::getUserCode, user.getUserCode())
         );
         
         if (existing != null) {
@@ -295,7 +301,7 @@ public class ImportService {
             userMapper.updateById(user);
         } else {
             // 跳过新用户导入
-            log.warn("跳过新用户导入: {}", user.getStudentId());
+            log.warn("跳过新用户导入: {}", user.getUserCode());
         }
     }
 
@@ -333,7 +339,13 @@ public class ImportService {
         
         Team team = new Team();
         team.setTeamName(line[1]);
-        team.setType(line[2]);
+        // 将type转换为team_nature：PROJECT->TEMPORARY, COMPETITION->LONG_TERM
+        String type = line[2];
+        if ("COMPETITION".equals(type)) {
+            team.setTeamNature("LONG_TERM");
+        } else {
+            team.setTeamNature("TEMPORARY");
+        }
         team.setDescription(line[3]);
         
         if (!line[4].isEmpty()) {

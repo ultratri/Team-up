@@ -90,7 +90,7 @@ export interface ApproveApplicationDTO {
  * 获取待审核的导师申请列表
  */
 export async function getMentorApplications(page = 1, size = 20) {
-  const res = await request.get<any>('/api/admin/mentors/applications', {
+  const res = await request.get<any>('/mentor-applications', {
     params: { page, size }
   })
   
@@ -121,7 +121,10 @@ export async function getMentorApplications(page = 1, size = 20) {
  * 审核导师申请
  */
 export async function approveMentorApplication(dto: ApproveApplicationDTO) {
-  const res = await request.post<any>('/api/admin/mentors/applications/approve', dto)
+  const res = await request.post<any>(`/mentor-applications/${dto.applicationId}/review`, {
+    approved: dto.approved,
+    rejectReason: dto.rejectReason
+  })
   
   if (res && typeof res === 'object' && 'code' in res) {
     if (res.code === 200) return
@@ -133,7 +136,7 @@ export async function approveMentorApplication(dto: ApproveApplicationDTO) {
  * 获取导师列表
  */
 export async function getMentorList(page = 1, size = 20) {
-  const res = await request.get<any>('/api/admin/mentors', {
+  const res = await request.get<any>('/admin/mentors', {
     params: { page, size }
   })
   
@@ -164,7 +167,7 @@ export async function getMentorList(page = 1, size = 20) {
  * 获取导师绩效排行榜
  */
 export async function getMentorRanking(limit = 10): Promise<MentorRanking[]> {
-  const res = await request.get<any>('/api/admin/mentors/ranking', {
+  const res = await request.get<any>('/admin/mentors/ranking', {
     params: { limit }
   })
   
@@ -184,7 +187,7 @@ export async function getMentorRanking(limit = 10): Promise<MentorRanking[]> {
  * 撤销导师资格
  */
 export async function revokeMentor(mentorId: number) {
-  const res = await request.post<any>(`/api/admin/mentors/${mentorId}/revoke`)
+  const res = await request.post<any>(`/admin/mentors/${mentorId}/revoke`)
   
   if (res && typeof res === 'object' && 'code' in res) {
     if (res.code === 200) return
@@ -196,7 +199,7 @@ export async function revokeMentor(mentorId: number) {
  * 获取导师详情
  */
 export async function getMentorDetail(mentorId: number): Promise<MentorDetail | null> {
-  const res = await request.get<any>(`/api/admin/mentors/${mentorId}`)
+  const res = await request.get<any>(`/admin/mentors/${mentorId}`)
   
   if (res && typeof res === 'object') {
     if ('code' in res && res.code === 200 && res.data) {
@@ -214,7 +217,7 @@ export async function getMentorDetail(mentorId: number): Promise<MentorDetail | 
  * 更新所有导师评分
  */
 export async function updateAllMentorRatings(): Promise<string> {
-  const res = await request.post<any>('/api/admin/mentors/update-ratings')
+  const res = await request.post<any>('/admin/mentors/update-ratings')
   
   if (res && typeof res === 'object') {
     if ('code' in res && res.code === 200) {
@@ -230,7 +233,7 @@ export async function updateAllMentorRatings(): Promise<string> {
  * 更新单个导师评分
  */
 export async function updateMentorRating(mentorId: number): Promise<string> {
-  const res = await request.post<any>(`/api/admin/mentors/${mentorId}/update-rating`)
+  const res = await request.post<any>(`/admin/mentors/${mentorId}/update-rating`)
   
   if (res && typeof res === 'object') {
     if ('code' in res && res.code === 200) {
@@ -275,7 +278,7 @@ export async function getMentorPlaza(params?: {
   department?: string
   keyword?: string
 }) {
-  const res = await request.get<any>('/api/mentor-relationships/mentors', { params })
+  const res = await request.get<any>('/mentor-relationships/mentors', { params })
   
   if (res && typeof res === 'object') {
     if ('code' in res && res.code === 200 && res.data) {

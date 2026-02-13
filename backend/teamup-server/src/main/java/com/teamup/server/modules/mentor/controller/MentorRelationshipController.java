@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/mentor-relationships")
+@RequestMapping("/mentor-relationships")
 @RequiredArgsConstructor
 public class MentorRelationshipController {
 

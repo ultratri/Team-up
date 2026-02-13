@@ -17,12 +17,11 @@ public class User {
     @TableId(type = IdType.AUTO)
     private Long id;
     
-    private String studentId;
+    private String userCode;  // 用户编号（学号/工号/账号等）
     private String username;
     private String password;
     private String email;
     private String phone;
-    private String role;    // STUDENT, MENTOR, PLATFORM_ADMIN
     private String status;  // ACTIVE, INACTIVE, BANNED
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

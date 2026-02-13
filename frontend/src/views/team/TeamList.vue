@@ -194,20 +194,28 @@ const filteredTeams = computed(() => {
  * 加载团队列表
  */
 const loadTeams = async () => {
+  console.log('🔍 loadTeams 开始')
+  
   if (!authStore.user) {
+    console.error('❌ authStore.user 为空，无法加载团队列表')
     ElMessage.error('请先登录')
     router.push({ name: 'Login' })
     return
   }
 
+  console.log('✅ 用户已登录，user.id:', authStore.user.id)
+
   try {
+    console.log('📡 调用 teamStore.fetchUserTeams...')
     await teamStore.fetchUserTeams({
       userId: authStore.user.id,
       keyword: debouncedKeyword.value || undefined,
       status: statusFilter.value || undefined
     })
+    console.log('✅ fetchUserTeams 完成，teams:', teamStore.teams)
+    console.log('  teams.length:', teamStore.teams.length)
   } catch (err: any) {
-    console.error('Failed to load teams:', err)
+    console.error('❌ Failed to load teams:', err)
     ElMessage.error(err.message || '加载团队列表失败')
   }
 }
@@ -267,6 +275,9 @@ const handleTeamClick = async (teamId: number) => {
 
 // Lifecycle
 onMounted(() => {
+  console.log('🔍 TeamList onMounted - 开始加载团队列表')
+  console.log('  authStore.user:', authStore.user)
+  console.log('  authStore.user.id:', authStore.user?.id)
   loadTeams()
 })
 </script>

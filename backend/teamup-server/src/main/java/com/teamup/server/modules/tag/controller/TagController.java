@@ -15,7 +15,7 @@ import java.util.List;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/tags")
+@RequestMapping("/tags")
 @RequiredArgsConstructor
 @PreAuthorize("isAuthenticated()")
 public class TagController {
@@ -27,7 +27,7 @@ public class TagController {
      */
     @GetMapping("/popular")
     public Result<List<Tag>> getPopularTags(
-        @RequestParam(required = false) Tag.TagCategory category,
+        @RequestParam(required = false) String category,
         @RequestParam(defaultValue = "50") int limit
     ) {
         List<Tag> tags = tagService.getPopularTags(category, limit);
@@ -39,7 +39,7 @@ public class TagController {
      */
     @GetMapping("/skills")
     public Result<List<Tag>> getSkillTags() {
-        List<Tag> tags = tagService.getPopularTags(Tag.TagCategory.SKILL, 100);
+        List<Tag> tags = tagService.getPopularTags("SKILL", 100);
         return Result.success(tags);
     }
     
@@ -48,7 +48,7 @@ public class TagController {
      */
     @GetMapping("/interests")
     public Result<List<Tag>> getInterestTags() {
-        List<Tag> tags = tagService.getPopularTags(Tag.TagCategory.INTEREST, 100);
+        List<Tag> tags = tagService.getPopularTags("INTEREST", 100);
         return Result.success(tags);
     }
     
@@ -57,7 +57,7 @@ public class TagController {
      */
     @GetMapping("/personalities")
     public Result<List<Tag>> getPersonalityTags() {
-        List<Tag> tags = tagService.getPopularTags(Tag.TagCategory.PERSONALITY, 100);
+        List<Tag> tags = tagService.getPopularTags("PERSONALITY", 100);
         return Result.success(tags);
     }
     
@@ -66,7 +66,7 @@ public class TagController {
      */
     @GetMapping("/project-types")
     public Result<List<Tag>> getProjectTypeTags() {
-        List<Tag> tags = tagService.getPopularTags(Tag.TagCategory.PROJECT_TYPE, 100);
+        List<Tag> tags = tagService.getPopularTags("PROJECT_TYPE", 100);
         return Result.success(tags);
     }
 }

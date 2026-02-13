@@ -62,7 +62,7 @@ public class SearchServiceImpl implements SearchService {
         LambdaQueryWrapper<User> userWrapper = new LambdaQueryWrapper<>();
         userWrapper.like(User::getUsername, searchKeyword)
                    .or()
-                   .like(User::getStudentId, searchKeyword)
+                   .like(User::getUserCode, searchKeyword)
                    .last("LIMIT 10");
         
         List<User> users = userMapper.selectList(userWrapper);
@@ -71,7 +71,7 @@ public class SearchServiceImpl implements SearchService {
             item.setType("users");
             item.setId(user.getId());
             item.setTitle(user.getUsername());
-            item.setDescription("学号: " + user.getStudentId());
+            item.setDescription("学号: " + user.getUserCode());
             item.setIcon("👤");
             result.getUsers().add(item);
         }

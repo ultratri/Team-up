@@ -150,7 +150,7 @@ export interface TeamStatistics {
  * 创建团队请求
  */
 export interface TeamCreateRequest {
-  name: string
+  teamName: string
   description?: string
   avatar?: string
   projectId?: number
@@ -159,7 +159,7 @@ export interface TeamCreateRequest {
   competitionId?: number
   maxMembers?: number
   // 兼容旧字段
-  teamName?: string
+  name?: string
   leaderId?: number
 }
 

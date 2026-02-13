@@ -21,7 +21,7 @@
             </div>
             <div class="info-item">
               <span class="label">学号/工号</span>
-              <span class="value">{{ userInfo.studentId || '-' }}</span>
+              <span class="value">{{ userInfo.userCode || '-' }}</span>
             </div>
             <div class="info-item">
               <span class="label">邮箱</span>

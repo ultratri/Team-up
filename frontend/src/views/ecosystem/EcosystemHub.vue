@@ -107,7 +107,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Search, Briefcase, User, Trophy, FolderOpened, ChatLineSquare } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { getEcosystemStats } from '@/api/ecosystem'
@@ -117,6 +118,8 @@ import CompetitionCenter from './tabs/CompetitionCenter.vue'
 import ResourceSquare from './tabs/ResourceSquare.vue'
 import MomentSquare from './tabs/MomentSquare.vue'
 
+const route = useRoute()
+const router = useRouter()
 const activeTab = ref('projects')
 const globalSearchKeyword = ref('')
 
@@ -148,6 +151,8 @@ const handleGlobalSearch = () => {
 
 const handleTabChange = (tabName: string) => {
   console.log('切换到:', tabName)
+  // 更新URL参数，保持标签状态
+  router.replace({ query: { ...route.query, tab: tabName } })
 }
 
 const loadStats = async () => {
@@ -169,8 +174,26 @@ const loadStats = async () => {
   }
 }
 
+// 监听路由变化，恢复标签状态
+watch(() => route.query.tab, (newTab) => {
+  if (newTab && typeof newTab === 'string') {
+    const validTabs = ['projects', 'talents', 'competitions', 'resources', 'moments']
+    if (validTabs.includes(newTab)) {
+      activeTab.value = newTab
+    }
+  }
+}, { immediate: true })
+
 onMounted(() => {
   loadStats()
+  // 从URL参数恢复标签状态
+  const tabFromQuery = route.query.tab as string
+  if (tabFromQuery) {
+    const validTabs = ['projects', 'talents', 'competitions', 'resources', 'moments']
+    if (validTabs.includes(tabFromQuery)) {
+      activeTab.value = tabFromQuery
+    }
+  }
 })
 </script>
 

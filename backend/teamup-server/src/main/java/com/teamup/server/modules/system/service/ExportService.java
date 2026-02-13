@@ -196,7 +196,7 @@ public class ExportService {
             for (User user : result.getRecords()) {
                 Row row = sheet.createRow(rowNum++);
                 row.createCell(0).setCellValue(user.getId());
-                row.createCell(1).setCellValue(user.getStudentId());
+                row.createCell(1).setCellValue(user.getUserCode());
                 row.createCell(2).setCellValue(user.getUsername());
                 row.createCell(3).setCellValue(user.getEmail());
                 row.createCell(4).setCellValue(user.getPhone() != null ? user.getPhone() : "");
@@ -276,7 +276,9 @@ public class ExportService {
                 Row row = sheet.createRow(rowNum++);
                 row.createCell(0).setCellValue(team.getId());
                 row.createCell(1).setCellValue(team.getTeamName());
-                row.createCell(2).setCellValue(team.getType() != null ? team.getType() : "");
+                // 将team_nature转换回type：TEMPORARY->PROJECT, LONG_TERM->COMPETITION
+                String type = "LONG_TERM".equals(team.getTeamNature()) ? "COMPETITION" : "PROJECT";
+                row.createCell(2).setCellValue(type);
                 row.createCell(3).setCellValue(team.getDescription() != null ? team.getDescription() : "");
                 row.createCell(4).setCellValue(team.getLeaderId());
                 row.createCell(5).setCellValue(team.getProjectId() != null ? team.getProjectId() : 0);
@@ -435,7 +437,7 @@ public class ExportService {
             for (User user : result.getRecords()) {
                 writer.writeNext(new String[]{
                         String.valueOf(user.getId()),
-                        user.getStudentId(),
+                        user.getUserCode(),
                         user.getUsername(),
                         user.getEmail(),
                         user.getPhone() != null ? user.getPhone() : "",
@@ -494,7 +496,8 @@ public class ExportService {
                 writer.writeNext(new String[]{
                         String.valueOf(team.getId()),
                         team.getTeamName(),
-                        team.getType() != null ? team.getType() : "",
+                        // 将team_nature转换回type：TEMPORARY->PROJECT, LONG_TERM->COMPETITION
+                        "LONG_TERM".equals(team.getTeamNature()) ? "COMPETITION" : "PROJECT",
                         team.getDescription() != null ? team.getDescription() : "",
                         String.valueOf(team.getLeaderId()),
                         team.getProjectId() != null ? String.valueOf(team.getProjectId()) : "",

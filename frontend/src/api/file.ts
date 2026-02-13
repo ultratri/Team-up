@@ -54,7 +54,7 @@ export function getTeamFiles(
   folderId?: number | null
 ): Promise<FileEntity[]> {
   const params = folderId ? { folderId } : {}
-  return request.get<FileEntity[]>(`/api/teams/${teamId}/files`, { params })
+  return request.get<FileEntity[]>(`/teams/${teamId}/files`, { params })
 }
 
 /**
@@ -92,10 +92,10 @@ export function createTeamFolder(
  */
 export function downloadFile(fileId: number): Promise<void> {
   // 使用原生 fetch + Authorization 头，避免 axios 拦截器对 blob 响应的干扰
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
   const token = window.localStorage.getItem('token') || ''
 
-  return fetch(`${baseUrl}/api/files/${fileId}/download`, {
+  return fetch(`${baseUrl}/files/${fileId}/download`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     credentials: 'include',
   })
@@ -135,24 +135,24 @@ export function downloadFile(fileId: number): Promise<void> {
  * ```
  */
 export function deleteFile(fileId: number): Promise<void> {
-  return request.delete<void>(`/api/files/${fileId}`)
+  return request.delete<void>(`/files/${fileId}`)
 }
 
 /**
  * 获取某个文件的活动历史
  */
 export function getFileActivities(fileId: number, limit = 50): Promise<ActivityVO[]> {
-  return request.get<ActivityVO[]>(`/api/files/${fileId}/activities`, { params: { limit } })
+  return request.get<ActivityVO[]>(`/files/${fileId}/activities`, { params: { limit } })
 }
 
 /**
  * 预览文件（inline）
  */
 export async function previewFileBlob(fileId: number): Promise<Blob> {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
   const token = window.localStorage.getItem('token') || ''
 
-  const res = await fetch(`${baseUrl}/api/files/${fileId}/preview`, {
+  const res = await fetch(`${baseUrl}/files/${fileId}/preview`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     credentials: 'include',
   })

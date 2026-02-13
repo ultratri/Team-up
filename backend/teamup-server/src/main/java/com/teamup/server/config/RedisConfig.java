@@ -96,6 +96,15 @@ public class RedisConfig implements CachingConfigurer {
         // 项目信息缓存：10分钟
         cacheConfigurations.put("projects", defaultConfig.entryTtl(Duration.ofMinutes(10)));
         
+        // 人才墙缓存：5分钟（人才列表变化较频繁）
+        cacheConfigurations.put("talentList", defaultConfig.entryTtl(Duration.ofMinutes(5)));
+        
+        // 用户角色缓存：30分钟（角色变化不频繁）
+        cacheConfigurations.put("userRoles", defaultConfig.entryTtl(Duration.ofMinutes(30)));
+        
+        // 用户项目数量缓存：10分钟
+        cacheConfigurations.put("userProjectCount", defaultConfig.entryTtl(Duration.ofMinutes(10)));
+        
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)
                 .withInitialCacheConfigurations(cacheConfigurations)

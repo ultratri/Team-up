@@ -1,12 +1,14 @@
 server:
   port: 8080
+  servlet:
+    context-path: /api
 
 file:
   # 使用绝对路径默认值，避免 Windows 下相对路径落到 Tomcat 临时目录导致上传失败
   upload:
     path: ${TEAMUP_UPLOAD_PATH:${user.home}/teamup/uploads}
   access:
-    url: http://localhost:8080/uploads
+    url: http://localhost:8080/api/uploads
 
 spring:
   application:

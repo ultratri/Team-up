@@ -11,7 +11,7 @@ import jakarta.validation.constraints.Size;
 @Data
 public class RegisterRequest {
     @NotBlank(message = "学号/工号不能为空")
-    private String studentId;
+    private String userCode;
     
     @NotBlank(message = "用户名不能为空")
     @Size(min = 2, max = 50, message = "用户名长度在2-50之间")

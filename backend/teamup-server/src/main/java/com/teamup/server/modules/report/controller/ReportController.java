@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/reports")
+@RequestMapping("/reports")
 @RequiredArgsConstructor
 @PreAuthorize("isAuthenticated()")
 public class ReportController {

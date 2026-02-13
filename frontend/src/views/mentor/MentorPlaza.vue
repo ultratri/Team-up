@@ -523,9 +523,9 @@ const handleViewDetail = async (mentor: MentorCardType) => {
   loadingOtherTags.value = true
   try {
     const [interestsRes, personalitiesRes, projectTypesRes] = await Promise.all([
-      request.get(`/api/user-tags/${mentor.id}/tags/INTEREST`),
-      request.get(`/api/user-tags/${mentor.id}/tags/PERSONALITY`),
-      request.get(`/api/user-tags/${mentor.id}/tags/PROJECT_TYPE`)
+      request.get(`/user-tags/${mentor.id}/tags/INTEREST`),
+      request.get(`/user-tags/${mentor.id}/tags/PERSONALITY`),
+      request.get(`/user-tags/${mentor.id}/tags/PROJECT_TYPE`)
     ])
     
     if (interestsRes?.data) mentorInterests.value = interestsRes.data

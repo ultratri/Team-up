@@ -18,6 +18,10 @@ export function normalizeTeam(team: any): Team {
     name: team.name || team.teamName,
     // 创建者ID：后端 leaderId -> 前端 creatorId
     creatorId: team.creatorId || team.leaderId,
+    // 保留 leaderId 字段用于兼容性检查
+    leaderId: team.leaderId || team.creatorId,
+    // 队伍类型：根据 competitionId 判断
+    type: team.type || (team.competitionId ? 'COMPETITION' : 'PROJECT'),
     // 状态：如果后端没有返回，默认为 ACTIVE
     status: team.status || 'ACTIVE',
     // 时间字段：确保存在

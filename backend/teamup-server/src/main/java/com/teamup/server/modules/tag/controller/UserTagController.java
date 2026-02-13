@@ -20,7 +20,7 @@ import java.util.List;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/user-tags")
+@RequestMapping("/user-tags")
 @RequiredArgsConstructor
 @PreAuthorize("isAuthenticated()")
 public class UserTagController {
@@ -65,8 +65,7 @@ public class UserTagController {
         @PathVariable Long userId,
         @PathVariable String category
     ) {
-        Tag.TagCategory tagCategory = Tag.TagCategory.valueOf(category.toUpperCase());
-        List<UserTagVO> tags = userTagService.getUserTagsByCategory(userId, tagCategory);
+        List<UserTagVO> tags = userTagService.getUserTagsByCategory(userId, category.toUpperCase());
         return Result.success(tags);
     }
     

@@ -255,7 +255,7 @@ const processRules: FormRules = {
 const fetchReportList = async () => {
   loading.value = true
   try {
-    const { data } = await request.get('/api/admin/reports', {
+    const { data } = await request.get('/admin/reports', {
       params: {
         page: pagination.page,
         size: pagination.size,
@@ -274,7 +274,7 @@ const fetchReportList = async () => {
 
 const fetchStatistics = async () => {
   try {
-    const { data } = await request.get('/api/admin/reports/statistics')
+    const { data } = await request.get('/admin/reports/statistics')
     const statusMap = {
       PENDING: 0,
       REVIEWING: 1,
@@ -313,7 +313,7 @@ const handlePageChange = () => {
 
 const handleView = async (row: any) => {
   try {
-    const { data } = await request.get(`/api/admin/reports/${row.id}`)
+    const { data } = await request.get(`/admin/reports/${row.id}`)
     currentReport.value = data
     detailDialogVisible.value = true
   } catch (error) {
@@ -337,7 +337,7 @@ const handleSubmitProcess = async () => {
   await processFormRef.value.validate(async (valid) => {
     if (valid) {
       try {
-        await request.post('/api/admin/reports/handle', processForm)
+        await request.post('/admin/reports/handle', processForm)
         ElMessage.success('处理成功')
         processDialogVisible.value = false
         fetchReportList()

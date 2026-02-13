@@ -275,7 +275,7 @@ const rejecting = ref(false);
 const loadConfig = async () => {
   configLoading.value = true;
   try {
-    const response = await request.get('/api/admin/newbie/config');
+    const response = await request.get('/admin/newbie/config');
     if (response.code === 200) {
       config.value = response.data;
     }
@@ -290,7 +290,7 @@ const loadConfig = async () => {
 const saveConfig = async () => {
   saving.value = true;
   try {
-    const response = await request.put('/api/admin/newbie/config', config.value);
+    const response = await request.put('/admin/newbie/config', config.value);
     if (response.code === 200) {
       ElMessage.success('保存成功');
     }
@@ -305,7 +305,7 @@ const saveConfig = async () => {
 const loadTasks = async () => {
   tasksLoading.value = true;
   try {
-    const response = await request.get('/api/admin/newbie/tasks');
+    const response = await request.get('/admin/newbie/tasks');
     if (response.code === 200) {
       tasks.value = response.data;
     }
@@ -319,7 +319,7 @@ const loadTasks = async () => {
 // 更新任务状态
 const updateTaskStatus = async (task: any) => {
   try {
-    const response = await request.put(`/api/admin/newbie/tasks/${task.id}`, task);
+    const response = await request.put(`/admin/newbie/tasks/${task.id}`, task);
     if (response.code === 200) {
       ElMessage.success('更新成功');
     }
@@ -340,7 +340,7 @@ const saveTask = async () => {
   savingTask.value = true;
   try {
     const response = await request.put(
-      `/api/admin/newbie/tasks/${editingTask.value.id}`, 
+      `/admin/newbie/tasks/${editingTask.value.id}`, 
       editingTask.value
     );
     if (response.code === 200) {
@@ -359,7 +359,7 @@ const saveTask = async () => {
 const loadCertifications = async () => {
   certificationsLoading.value = true;
   try {
-    const response = await request.get('/api/admin/newbie/certifications/pending', {
+    const response = await request.get('/admin/newbie/certifications/pending', {
       params: {
         page: certificationPage.value,
         size: certificationSize.value
@@ -390,7 +390,7 @@ const approveCertification = async (cert: any) => {
     
     cert.approving = true;
     const response = await request.post(
-      `/api/admin/newbie/certifications/${cert.id}/approve`
+      `/admin/newbie/certifications/${cert.id}/approve`
     );
     
     if (response.code === 200) {
@@ -425,7 +425,7 @@ const confirmReject = async () => {
   rejecting.value = true;
   try {
     const response = await request.post(
-      `/api/admin/newbie/certifications/${rejectForm.value.certificationId}/reject`,
+      `/admin/newbie/certifications/${rejectForm.value.certificationId}/reject`,
       { reason: rejectForm.value.reason }
     );
     

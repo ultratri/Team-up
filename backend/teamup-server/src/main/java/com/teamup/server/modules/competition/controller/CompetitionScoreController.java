@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/competitions")
+@RequestMapping("/competitions")
 @RequiredArgsConstructor
 public class CompetitionScoreController {
 

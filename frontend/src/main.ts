@@ -8,6 +8,7 @@ import '@styles/main.scss'
 import '@/styles/transitions.scss'
 import { setupErrorHandler } from './utils/errorHandler'
 import { useSystemStore } from './store/system'
+import './utils/auth-debug' // 导入认证调试工具
 
 const app = createApp(App)
 

@@ -32,7 +32,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(User::getUsername, username)
                .or()
-               .eq(User::getStudentId, username);
+               .eq(User::getUserCode, username);
         
         User user = userMapper.selectOne(wrapper);
         
@@ -50,7 +50,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         
         return new CustomUserDetails(
                 user.getId(),
-                user.getStudentId(),
+                user.getUserCode(),
                 user.getUsername(),
                 user.getPassword(),
                 "ACTIVE".equals(user.getStatus()),  // enabled

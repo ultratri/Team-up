@@ -73,10 +73,15 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
         team.setTeamName(request.getTeamName());
         team.setProjectId(request.getProjectId());
         team.setLeaderId(request.getLeaderId());
-        // 默认项目团队，如为比赛队伍则从请求中带入
-        team.setType(request.getType() != null ? request.getType() : "PROJECT");
+        // 根据type设置team_nature：PROJECT->TEMPORARY, COMPETITION->LONG_TERM
+        if ("COMPETITION".equals(request.getType())) {
+            team.setTeamNature("LONG_TERM");
+        } else {
+            team.setTeamNature("TEMPORARY");
+        }
         team.setCompetitionId(request.getCompetitionId());
         team.setMaxMembers(request.getMaxMembers());
+        team.setStatus("ACTIVE"); // 设置默认状态
         team.setCreatedAt(LocalDateTime.now());
         team.setUpdatedAt(LocalDateTime.now());
         
@@ -411,10 +416,24 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
         Page<Team> teamPage = new Page<>(page, size);
         LambdaQueryWrapper<Team> wrapper = new LambdaQueryWrapper<>();
         
+        // type参数映射：PROJECT->TEMPORARY, COMPETITION->LONG_TERM
         if (type != null && !type.isEmpty()) {
-            wrapper.eq(Team::getType, type);
+            if ("COMPETITION".equals(type)) {
+                wrapper.eq(Team::getTeamNature, "LONG_TERM");
+            } else if ("PROJECT".equals(type)) {
+                wrapper.eq(Team::getTeamNature, "TEMPORARY");
+            }
         }
-        // Note: isActive filter removed as Team entity doesn't have this field
+        
+        // 使用status字段过滤活跃状态
+        if (isActive != null) {
+            if (isActive) {
+                wrapper.eq(Team::getStatus, "ACTIVE");
+            } else {
+                wrapper.ne(Team::getStatus, "ACTIVE");
+            }
+        }
+        
         if (keyword != null && !keyword.isEmpty()) {
             wrapper.like(Team::getTeamName, keyword);
         }
@@ -430,9 +449,14 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
             AdminTeamListVO vo = new AdminTeamListVO();
             vo.setId(team.getId());
             vo.setName(team.getTeamName());
-            vo.setType(team.getType());
+            // 将team_nature转换回type：TEMPORARY->PROJECT, LONG_TERM->COMPETITION
+            if ("LONG_TERM".equals(team.getTeamNature())) {
+                vo.setType("COMPETITION");
+            } else {
+                vo.setType("PROJECT");
+            }
             vo.setLeaderId(team.getLeaderId());
-            vo.setIsActive(true); // Default to true since field doesn't exist
+            vo.setIsActive("ACTIVE".equals(team.getStatus()));
             vo.setCreatedAt(team.getCreatedAt());
             vo.setUpdatedAt(team.getUpdatedAt());
             
@@ -472,9 +496,14 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
         vo.setId(team.getId());
         vo.setName(team.getTeamName());
         vo.setDescription(team.getDescription());
-        vo.setType(team.getType());
+        // 将team_nature转换回type：TEMPORARY->PROJECT, LONG_TERM->COMPETITION
+        if ("LONG_TERM".equals(team.getTeamNature())) {
+            vo.setType("COMPETITION");
+        } else {
+            vo.setType("PROJECT");
+        }
         vo.setSpecialization(null); // Team doesn't have this field
-        vo.setIsActive(true); // Default to true
+        vo.setIsActive("ACTIVE".equals(team.getStatus()));
         vo.setCreatedAt(team.getCreatedAt());
         vo.setUpdatedAt(team.getUpdatedAt());
         

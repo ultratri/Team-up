@@ -3,13 +3,20 @@
 import { onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useThemeStore } from './store/theme'
+import { useRoutePreload, preloadCommonRoutes } from './composables/useRoutePreload'
 
 const themeStore = useThemeStore()
 const router = useRouter()
 const transitionName = ref('slide-fade')
 
+// 启用路由预加载
+useRoutePreload(router)
+
 onMounted(() => {
   themeStore.initTheme()
+  
+  // 预加载常用路由
+  preloadCommonRoutes(router)
 })
 
 // 根据路由变化动态选择过渡动画

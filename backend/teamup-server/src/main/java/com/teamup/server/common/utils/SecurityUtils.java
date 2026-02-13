@@ -22,4 +22,19 @@ public class SecurityUtils {
         }
         throw new RuntimeException("用户未登录或Token无效");
     }
+    
+    /**
+     * 获取当前用户ID（安全版本，未登录返回null）
+     */
+    public static Long getUserIdOrNull() {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.getPrincipal() instanceof CustomUserDetails) {
+                return ((CustomUserDetails) authentication.getPrincipal()).getId();
+            }
+        } catch (Exception e) {
+            // 忽略异常
+        }
+        return null;
+    }
 }

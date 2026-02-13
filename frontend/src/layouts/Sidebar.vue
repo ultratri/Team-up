@@ -147,11 +147,6 @@ const menuItems = computed(() => {
       { key: 'my-projects', title: '我的项目', icon: Document, path: '/projects/my' },
       { key: 'team', title: '团队', icon: Connection, path: '/team' },
     ];
-    
-    // 非导师用户才显示比赛菜单（导师通过综合广场访问比赛）
-    if (!isMentor) {
-      baseItems.splice(2, 0, { key: 'competition', title: '比赛', icon: Trophy, path: '/competition' });
-    }
   }
 
   // 通用菜单 (管理员和导师的 '我的' 已在 '账户' 分组中)

@@ -54,7 +54,7 @@ export interface CompetitionLeaderboardEntry {
  * 获取比赛列表
  */
 export async function getCompetitions(params?: CompetitionListQuery): Promise<CompetitionListResponse> {
-  const res = await request.get<ApiResult<PageResult<Competition>>>('/api/competitions', { params })
+  const res = await request.get<ApiResult<PageResult<Competition>>>('/competitions', { params })
   if (res.code === 200 && res.data) {
     // 修复：如果 total 为 0 但有 records，使用 records 长度
     const total = res.data.total || res.data.records?.length || 0
@@ -72,7 +72,7 @@ export async function getCompetitions(params?: CompetitionListQuery): Promise<Co
  * 获取比赛详情
  */
 export async function getCompetitionDetail(id: number): Promise<Competition | null> {
-  const res = await request.get<ApiResult<Competition>>(`/api/competitions/${id}`)
+  const res = await request.get<ApiResult<Competition>>(`/competitions/${id}`)
   if (res.code === 200 && res.data) {
     // 解析 attachments JSON 字符串
     if (res.data.attachments && typeof res.data.attachments === 'string') {
@@ -92,7 +92,7 @@ export async function getCompetitionDetail(id: number): Promise<Competition | nu
  * 创建比赛（管理员/教师）
  */
 export async function createCompetition(data: CompetitionCreateRequest): Promise<Competition> {
-  const res = await request.post<ApiResult<Competition>>('/api/competitions', data)
+  const res = await request.post<ApiResult<Competition>>('/competitions', data)
   if (res.code === 200 && res.data) {
     return res.data
   }
@@ -103,7 +103,7 @@ export async function createCompetition(data: CompetitionCreateRequest): Promise
  * 更新比赛（管理员/教师）
  */
 export async function updateCompetition(id: number, data: Partial<CompetitionUpdateRequest>): Promise<Competition> {
-  const res = await request.put<ApiResult<Competition>>(`/api/competitions/${id}`, data)
+  const res = await request.put<ApiResult<Competition>>(`/competitions/${id}`, data)
   if (res.code === 200 && res.data) {
     return res.data
   }
@@ -114,7 +114,7 @@ export async function updateCompetition(id: number, data: Partial<CompetitionUpd
  * 发布比赛（管理员/教师）
  */
 export async function publishCompetition(id: number): Promise<void> {
-  const res = await request.post<ApiResult<void>>(`/api/competitions/${id}/publish`)
+  const res = await request.post<ApiResult<void>>(`/competitions/${id}/publish`)
   if (res.code !== 200) {
     throw new Error(res.message || '发布比赛失败')
   }
@@ -124,7 +124,7 @@ export async function publishCompetition(id: number): Promise<void> {
  * 归档比赛（管理员/教师）
  */
 export async function archiveCompetition(id: number): Promise<void> {
-  const res = await request.post<ApiResult<void>>(`/api/competitions/${id}/archive`)
+  const res = await request.post<ApiResult<void>>(`/competitions/${id}/archive`)
   if (res.code !== 200) {
     throw new Error(res.message || '归档比赛失败')
   }
@@ -137,7 +137,7 @@ export async function getCompetitionTeams(
   competitionId: number,
   params?: { page?: number; size?: number }
 ): Promise<TeamListResponse> {
-  const res = await request.get<ApiResult<PageResult<Team>>>(`/api/competitions/${competitionId}/teams`, { params })
+  const res = await request.get<ApiResult<PageResult<Team>>>(`/competitions/${competitionId}/teams`, { params })
   if (res.code === 200 && res.data) {
     // MyBatis-Plus Page 返回的字段名是 records, total, current, size
     return {
@@ -157,7 +157,7 @@ export async function createCompetitionTeam(
   competitionId: number,
   data: Omit<TeamCreateRequest, 'competitionId' | 'type'>
 ): Promise<Team> {
-  const res = await request.post<ApiResult<Team>>(`/api/competitions/${competitionId}/teams`, data)
+  const res = await request.post<ApiResult<Team>>(`/competitions/${competitionId}/teams`, data)
   if (res.code === 200 && res.data) {
     return res.data
   }
@@ -173,7 +173,7 @@ export async function applyJoinCompetitionTeam(
   reason?: string
 ): Promise<any> {
   const res = await request.post<ApiResult<any>>(
-    `/api/competitions/${competitionId}/teams/${teamId}/join`,
+    `/competitions/${competitionId}/teams/${teamId}/join`,
     { reason }
   )
   if (res.code === 200) {
@@ -190,7 +190,7 @@ export async function createMentorApplication(
   data: Omit<MentorApplicationCreateRequest, 'teamId'>
 ): Promise<TeamMentorApplication> {
   const res = await request.post<ApiResult<TeamMentorApplication>>(
-    `/api/teams/${teamId}/mentor-applications`,
+    `/teams/${teamId}/mentor-applications`,
     null,
     {
       params: {
@@ -211,7 +211,7 @@ export async function createMentorApplication(
 export async function getMentorApplications(
   params?: MentorApplicationListQuery
 ): Promise<{ records: TeamMentorApplication[]; total: number }> {
-  const res = await request.get<ApiResult<PageResult<TeamMentorApplication>>>('/api/mentor/applications', { params })
+  const res = await request.get<ApiResult<PageResult<TeamMentorApplication>>>('/mentor/applications', { params })
   if (res.code === 200 && res.data) {
     return {
       records: res.data.records || [],
@@ -225,7 +225,7 @@ export async function getMentorApplications(
  * 老师接受导师申请
  */
 export async function acceptMentorApplication(applicationId: number): Promise<void> {
-  const res = await request.post<ApiResult<void>>(`/api/mentor/applications/${applicationId}/accept`)
+  const res = await request.post<ApiResult<void>>(`/mentor/applications/${applicationId}/accept`)
   if (res.code !== 200) {
     throw new Error(res.message || '接受申请失败')
   }
@@ -235,7 +235,7 @@ export async function acceptMentorApplication(applicationId: number): Promise<vo
  * 老师拒绝导师申请
  */
 export async function rejectMentorApplication(applicationId: number, reason?: string): Promise<void> {
-  const res = await request.post<ApiResult<void>>(`/api/mentor/applications/${applicationId}/reject`, null, {
+  const res = await request.post<ApiResult<void>>(`/mentor/applications/${applicationId}/reject`, null, {
     params: { reason }
   })
   if (res.code !== 200) {
@@ -247,7 +247,7 @@ export async function rejectMentorApplication(applicationId: number, reason?: st
  * 删除比赛（管理员）
  */
 export async function deleteCompetition(id: number): Promise<void> {
-  const res = await request.delete<ApiResult<void>>(`/api/competitions/${id}`)
+  const res = await request.delete<ApiResult<void>>(`/competitions/${id}`)
   if (res.code !== 200) {
     throw new Error(res.message || '删除比赛失败')
   }
@@ -263,10 +263,10 @@ export async function uploadCompetitionAttachment(
   const formData = new FormData()
   formData.append('file', file)
   
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
   const token = window.localStorage.getItem('token') || ''
   
-  const res = await fetch(`${baseUrl}/api/competitions/${competitionId}/attachments`, {
+  const res = await fetch(`${baseUrl}/competitions/${competitionId}/attachments`, {
     method: 'POST',
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: formData
@@ -283,7 +283,7 @@ export async function uploadCompetitionAttachment(
  * 删除比赛附件
  */
 export async function deleteCompetitionAttachment(competitionId: number, url: string): Promise<void> {
-  const res = await request.delete<ApiResult<void>>(`/api/competitions/${competitionId}/attachments`, {
+  const res = await request.delete<ApiResult<void>>(`/competitions/${competitionId}/attachments`, {
     params: { url }
   })
   if (res.code !== 200) {
@@ -295,7 +295,7 @@ export async function deleteCompetitionAttachment(competitionId: number, url: st
  * 获取比赛统计
  */
 export async function getCompetitionStats(competitionId: number): Promise<CompetitionStats> {
-  const res = await request.get<ApiResult<CompetitionStats>>(`/api/competitions/${competitionId}/stats`)
+  const res = await request.get<ApiResult<CompetitionStats>>(`/competitions/${competitionId}/stats`)
   if (res.code === 200 && res.data) {
     return res.data
   }
@@ -310,7 +310,7 @@ export async function getCompetitionTrend(
   days: number = 7
 ): Promise<CompetitionTrendPoint[]> {
   const res = await request.get<ApiResult<CompetitionTrendPoint[]>>(
-    `/api/competitions/${competitionId}/stats/trend`,
+    `/competitions/${competitionId}/stats/trend`,
     { params: { days } }
   )
   if (res.code === 200 && res.data) {
@@ -323,7 +323,7 @@ export async function getCompetitionTrend(
  * 获取推荐比赛（登录用户）
  */
 export async function getRecommendedCompetitions(params?: { page?: number; size?: number }): Promise<CompetitionListResponse> {
-  const res = await request.get<ApiResult<PageResult<Competition>>>('/api/competitions/recommendations', { params })
+  const res = await request.get<ApiResult<PageResult<Competition>>>('/competitions/recommendations', { params })
   if (res.code === 200 && res.data) {
     return {
       records: (res.data as any).records || [],
@@ -336,7 +336,7 @@ export async function getRecommendedCompetitions(params?: { page?: number; size?
 }
 
 export async function getCompetitionLeaderboard(competitionId: number, limit: number = 10): Promise<CompetitionLeaderboardEntry[]> {
-  const res = await request.get<ApiResult<CompetitionLeaderboardEntry[]>>(`/api/competitions/${competitionId}/leaderboard`, {
+  const res = await request.get<ApiResult<CompetitionLeaderboardEntry[]>>(`/competitions/${competitionId}/leaderboard`, {
     params: { limit }
   })
   if (res.code === 200 && res.data) return res.data
@@ -347,7 +347,7 @@ export async function upsertCompetitionTeamScore(
   competitionId: number,
   data: { teamId: number; score: number; comment?: string }
 ) {
-  const res = await request.post<ApiResult<any>>(`/api/competitions/${competitionId}/scores`, data)
+  const res = await request.post<ApiResult<any>>(`/competitions/${competitionId}/scores`, data)
   if (res.code === 200) return res.data
   throw new Error(res.message || '评分失败')
 }
@@ -358,13 +358,13 @@ export interface ScoredTeamRef {
 }
 
 export async function getScoredCompetitionTeams(): Promise<ScoredTeamRef[]> {
-  const res = await request.get<ApiResult<ScoredTeamRef[]>>('/api/competitions/scores/scored-teams')
+  const res = await request.get<ApiResult<ScoredTeamRef[]>>('/competitions/scores/scored-teams')
   if (res.code === 200 && res.data) return res.data
   return []
 }
 
 export async function getHotCompetitions(size: number = 6): Promise<Competition[]> {
-  const res = await request.get<ApiResult<Competition[]>>('/api/competitions/hot', { params: { size } })
+  const res = await request.get<ApiResult<Competition[]>>('/competitions/hot', { params: { size } })
   if (res.code === 200 && res.data) return res.data
   return []
 }
@@ -375,7 +375,7 @@ export async function getMyMentorCompetitionTeams(params: {
   competitionId?: number
   keyword?: string
 }): Promise<any> {
-  const res = await request.get<ApiResult<any>>('/api/mentor/competition-teams', { params })
+  const res = await request.get<ApiResult<any>>('/mentor/competition-teams', { params })
   if (res.code === 200 && res.data) return res.data
   return { records: [], total: 0, current: params.page || 1, size: params.size || 20 }
 }

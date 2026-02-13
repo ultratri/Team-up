@@ -21,7 +21,7 @@ import java.util.List;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/admin/tags")
+@RequestMapping("/admin/tags")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('PLATFORM_ADMIN')")
 public class AdminTagController {
@@ -75,7 +75,7 @@ public class AdminTagController {
     public Result<Page<Tag>> listTags(
         @RequestParam(defaultValue = "1") int page,
         @RequestParam(defaultValue = "20") int size,
-        @RequestParam(required = false) Tag.TagCategory category,
+        @RequestParam(required = false) String category,
         @RequestParam(required = false) String keyword
     ) {
         Page<Tag> result = tagService.listTags(page, size, category, keyword);

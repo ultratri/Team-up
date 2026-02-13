@@ -6,9 +6,12 @@
       </template>
     </el-page-header>
 
-    <el-card class="detail-card" v-if="competition" shadow="never">
+    <el-card class="detail-card" v-loading="loading" shadow="never">
+      <!-- 骨架屏 -->
+      <el-skeleton v-if="loading" :rows="8" animated />
+      
       <!-- 比赛头部信息 -->
-      <div class="competition-header">
+      <div v-else-if="competition" class="competition-header">
         <div>
           <h1>{{ competition.name }}</h1>
           <div class="tags">
@@ -221,7 +224,15 @@
             </div>
             <div class="team-card__actions">
               <el-button size="small" @click.stop="handleViewTeam(team.id)">查看</el-button>
-              <el-button type="primary" size="small" @click.stop="handleOpenJoin(team.id)">申请加入</el-button>
+              <el-button 
+                v-if="!isUserInTeam(team)"
+                type="primary" 
+                size="small" 
+                @click.stop="handleOpenJoin(team.id)"
+              >
+                申请加入
+              </el-button>
+              <el-tag v-else type="success" size="small">已加入</el-tag>
             </div>
           </el-card>
         </div>
@@ -240,8 +251,6 @@
         </div>
       </div>
     </el-card>
-
-    <!-- 创建队伍对话框 -->
     <el-dialog
       v-model="showCreateTeamDialog"
       title="创建比赛队伍"
@@ -249,8 +258,8 @@
       @close="resetCreateTeamForm"
     >
       <el-form :model="createTeamForm" :rules="createTeamRules" ref="createTeamFormRef" label-width="100px">
-        <el-form-item label="队伍名称" prop="name">
-          <el-input v-model="createTeamForm.name" placeholder="请输入队伍名称" />
+        <el-form-item label="队伍名称" prop="teamName">
+          <el-input v-model="createTeamForm.teamName" placeholder="请输入队伍名称" />
         </el-form-item>
         <el-form-item label="队伍描述" prop="description">
           <el-input
@@ -331,10 +340,12 @@ import type { Competition, CompetitionAttachment } from '@/types/competition'
 import type { Team, TeamCreateRequest } from '@/types/team'
 import type { Project } from '@/types/project'
 import { useAuthStore } from '@/store/auth'
+import { useTeamStore } from '@/store/team'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const teamStore = useTeamStore()
 
 const competition = ref<Competition | null>(null)
 const teams = ref<{ records: Team[]; total: number }>({ records: [], total: 0 })
@@ -347,14 +358,14 @@ const showCreateTeamDialog = ref(false)
 const creatingTeam = ref(false)
 const createTeamFormRef = ref<FormInstance>()
 const createTeamForm = reactive<TeamCreateRequest>({
-  name: '',
+  teamName: '',
   description: '',
   projectId: undefined,
   maxMembers: undefined
 })
 
 const createTeamRules: FormRules = {
-  name: [
+  teamName: [
     { required: true, message: '请输入队伍名称', trigger: 'blur' },
     { min: 2, max: 50, message: '队伍名称长度为 2-50 个字符', trigger: 'blur' }
   ]
@@ -398,6 +409,10 @@ const loadCompetition = async () => {
     const data = await getCompetitionDetail(competitionId.value)
     if (data) {
       competition.value = data
+      // 比赛详情加载完成后，立即加载用户项目（如果需要）
+      if (authStore.isAuthenticated && canCreateTeam.value) {
+        loadUserProjects()
+      }
     } else {
       ElMessage.error('比赛不存在')
       router.back()
@@ -468,7 +483,7 @@ const handleCreateTeam = async () => {
 }
 
 const resetCreateTeamForm = () => {
-  createTeamForm.name = ''
+  createTeamForm.teamName = ''
   createTeamForm.description = ''
   createTeamForm.projectId = undefined
   createTeamForm.maxMembers = undefined
@@ -479,8 +494,19 @@ const handleViewTeam = (teamId: number) => {
   router.push({ name: 'TeamOverview', params: { id: teamId } })
 }
 
+const isUserInTeam = (team: Team) => {
+  if (!authStore.user?.id) return false
+  // 检查是否是队长
+  if (team.leaderId === authStore.user.id) return true
+  // 检查是否是成员 - 通过teamStore中的teams列表判断
+  const userTeams = teamStore.teams
+  return userTeams.some(t => t.id === team.id)
+}
+
 const handleOpenJoin = (teamId: number) => {
-  if (!authStore.isAuthenticated) {
+  // 直接检查token而不是isAuthenticated
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token')
+  if (!token || !authStore.user) {
     ElMessage.warning('请先登录后再申请加入队伍')
     router.push({ name: 'Login', query: { redirect: route.fullPath } })
     return
@@ -505,7 +531,15 @@ const handleSubmitJoin = async () => {
 }
 
 const handleBack = () => {
-  router.back()
+  // 检查是否从综合广场进入
+  const from = route.query.from as string
+  if (from === 'ecosystem') {
+    // 返回综合广场的赛事中心标签
+    router.push({ path: '/ecosystem', query: { tab: 'competitions' } })
+  } else {
+    // 默认返回上一页
+    router.back()
+  }
 }
 
 const getStatusText = (status: string) => {
@@ -632,13 +666,22 @@ watch(() => route.params.id, () => {
   }
 })
 
-onMounted(() => {
-  loadCompetition()
-  loadTeams()
-  loadLeaderboard()
-  if (authStore.isAuthenticated) {
-    loadUserProjects()
+onMounted(async () => {
+  // 优先加载比赛详情，让页面快速显示
+  await loadCompetition()
+  
+  // 如果用户已登录，加载用户的团队列表（用于判断是否已加入队伍）
+  if (authStore.user?.id) {
+    teamStore.fetchUserTeams({ userId: authStore.user.id }).catch(err => {
+      console.warn('加载用户团队列表失败:', err)
+    })
   }
+  
+  // 然后并行加载其他数据
+  Promise.allSettled([
+    loadTeams(),
+    loadLeaderboard()
+  ])
 })
 </script>
 

@@ -35,8 +35,8 @@
             <el-option label="最后登录↑" value="lastLogin_asc" />
             <el-option label="角色（管理员优先）" value="role_desc" />
             <el-option label="角色（学生优先）" value="role_asc" />
-            <el-option label="学号/工号↑" value="studentId_asc" />
-            <el-option label="学号/工号↓" value="studentId_desc" />
+            <el-option label="学号/工号↑" value="userCode_asc" />
+            <el-option label="学号/工号↓" value="userCode_desc" />
             <el-option label="用户名↑" value="username_asc" />
             <el-option label="用户名↓" value="username_desc" />
             <el-option label="邮箱↑" value="email_asc" />
@@ -64,7 +64,7 @@
 
     <el-card class="table-card" shadow="never">
       <el-table :data="rows" v-loading="loading" style="width: 100%" @sort-change="handleSortChange">
-        <el-table-column prop="studentId" label="学号/工号" min-width="120" sortable="custom" />
+        <el-table-column prop="userCode" label="学号/工号" min-width="120" sortable="custom" />
         <el-table-column prop="username" label="用户名" min-width="120" sortable="custom" />
         <el-table-column prop="email" label="邮箱" min-width="180" sortable="custom" />
         <el-table-column prop="phone" label="手机号" min-width="120" sortable="custom" />
@@ -118,8 +118,8 @@
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="600px" @close="resetForm">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
-        <el-form-item label="学号/工号" prop="studentId">
-          <el-input v-model="form.studentId" :placeholder="form.role === 'MENTOR' ? '请输入工号' : '请输入学号'" />
+        <el-form-item label="学号/工号" prop="userCode">
+          <el-input v-model="form.userCode" :placeholder="form.role === 'MENTOR' ? '请输入工号' : '请输入学号'" />
         </el-form-item>
         <el-form-item label="用户名" prop="username">
           <el-input v-model="form.username" placeholder="请输入用户名" />
@@ -253,7 +253,7 @@ const dialogTitle = computed(() => (editingId.value ? '编辑用户' : '新建�
 const formRef = ref<FormInstance>()
 
 const form = reactive<any>({
-  studentId: '',
+  userCode: '',
   username: '',
   password: '',
   email: '',
@@ -263,7 +263,7 @@ const form = reactive<any>({
 })
 
 const rules: FormRules = {
-  studentId: [{ required: true, message: '请输入学号/工号', trigger: 'blur' }],
+  userCode: [{ required: true, message: '请输入学号/工号', trigger: 'blur' }],
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
   email: [
     { required: true, message: '请输入邮箱', trigger: 'blur' },
@@ -296,7 +296,7 @@ const openCreate = () => {
 
 const openEdit = async (row: User) => {
   editingId.value = row.id
-  form.studentId = row.studentId
+  form.userCode = row.userCode
   form.username = row.username
   form.email = row.email
   form.phone = row.phone || ''
@@ -310,7 +310,7 @@ const openEdit = async (row: User) => {
 
 const resetForm = () => {
   formRef.value?.clearValidate()
-  form.studentId = ''
+  form.userCode = ''
   form.username = ''
   form.password = ''
   form.email = ''
@@ -328,7 +328,7 @@ const submit = async () => {
     try {
       if (editingId.value) {
         const updateData: UserUpdateRequest = {
-          studentId: form.studentId,
+          userCode: form.userCode,
           username: form.username,
           email: form.email,
           phone: form.phone || undefined,
@@ -341,7 +341,7 @@ const submit = async () => {
         await updateUser(editingId.value, updateData)
       } else {
         const createData: UserCreateRequest = {
-          studentId: form.studentId,
+          userCode: form.userCode,
           username: form.username,
           password: form.password,
           email: form.email,

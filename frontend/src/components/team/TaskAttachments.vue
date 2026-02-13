@@ -127,7 +127,7 @@ const downloadingId = ref<number | null>(null)
 const uploadRef = ref()
 
 const uploadUrl = computed(() => {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
   return `${baseUrl}/tasks/${props.taskId}/attachments`
 })
 
@@ -232,7 +232,7 @@ const handleUploadError = (error: any) => {
 const handleDownload = async (attachment: TaskAttachment) => {
   downloadingId.value = attachment.id
   try {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
     const url = `${baseUrl}/tasks/${props.taskId}/attachments/${attachment.id}/download`
     
     const token = authStore.token

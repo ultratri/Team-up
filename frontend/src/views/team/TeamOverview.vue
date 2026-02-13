@@ -61,9 +61,47 @@
           </div>
           <div class="team-meta">
             <h1>{{ teamInfo.name }}</h1>
-            <p class="description" :aria-label="`团队描述: ${teamInfo.description || '暂无描述'}`">
-              {{ teamInfo.description || '暂无描述' }}
-            </p>
+            <div class="description-section">
+              <p v-if="!editingDescription" class="description" :aria-label="`团队描述: ${teamInfo.description || '暂无描述'}`">
+                {{ teamInfo.description || '暂无描述' }}
+              </p>
+              <el-input
+                v-else
+                v-model="descriptionEdit"
+                type="textarea"
+                :rows="3"
+                placeholder="请输入团队描述"
+                maxlength="200"
+                show-word-limit
+              />
+              <div v-if="isLeader" class="description-actions">
+                <el-button
+                  v-if="!editingDescription"
+                  type="text"
+                  :icon="Edit"
+                  size="small"
+                  @click="startEditDescription"
+                >
+                  编辑描述
+                </el-button>
+                <template v-else>
+                  <el-button
+                    type="primary"
+                    size="small"
+                    @click="saveDescription"
+                    :loading="savingDescription"
+                  >
+                    保存
+                  </el-button>
+                  <el-button
+                    size="small"
+                    @click="cancelEditDescription"
+                  >
+                    取消
+                  </el-button>
+                </template>
+              </div>
+            </div>
             <div class="stats-row" role="group" aria-label="团队基本统计">
               <div class="stat-item">
                 <span class="label">创建时间</span>
@@ -299,13 +337,13 @@
               <el-option
                 v-for="user in mentorSearchResults"
                 :key="user.id"
-                :label="`${user.username} (${user.studentId})`"
+                :label="`${user.username} (${user.userCode})`"
                 :value="user.id"
               >
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <span>{{ user.username }}</span>
                   <span style="font-size: 12px; color: var(--text-color-muted);">
-                    {{ user.studentId }}
+                    {{ user.userCode }}
                   </span>
                   <span v-if="user.email" style="font-size: 12px; color: var(--text-color-muted);">
                     · {{ user.email }}
@@ -380,6 +418,7 @@ import {
   Picture,
   Camera,
   Trophy,
+  Edit,
   Avatar
 } from '@element-plus/icons-vue'
 import { getTeam, getTeamMembers, getTeamStatistics, getTeamActivities, uploadTeamAvatar } from '@api/team'
@@ -387,6 +426,7 @@ import { getTeamJoinApplications, reviewTeamJoinApplication } from '@api/team'
 import { createMentorApplication } from '@api/competition'
 import { getCompetitionDetail } from '@api/competition'
 import { searchUsers } from '@api/user'
+import { request } from '@utils/request'
 import { useAuthStore } from '@store/auth'
 import type { Team, TeamMember, TeamActivity } from '@types/team'
 import type { TeamJoinApplication } from '@types/team'
@@ -411,6 +451,9 @@ const error = ref<string | null>(null)
 const teamInfo = ref<Partial<Team>>({})
 const members = ref<TeamMember[]>([])
 const avatarUploading = ref(false)
+const editingDescription = ref(false)
+const descriptionEdit = ref('')
+const savingDescription = ref(false)
 const statistics = reactive({
   taskCompletionRate: 0,
   activeDays: 0,
@@ -447,6 +490,10 @@ const loadJoinApplications = async () => {
     joinApplications.value = pageData?.records || []
   } catch (e: any) {
     console.warn('Failed to load join applications:', e)
+    // 如果是 401 错误，可能是权限问题，不影响页面其他功能
+    if (e.status === 401) {
+      console.warn('无权查看入队申请列表，可能不是队长')
+    }
     joinApplications.value = []
   } finally {
     joinLoading.value = false
@@ -657,6 +704,45 @@ const formatTime = (date: any) => {
   return new Date(date).toLocaleString('zh-CN')
 }
 
+// 编辑描述相关方法
+const startEditDescription = () => {
+  descriptionEdit.value = teamInfo.value.description || ''
+  editingDescription.value = true
+}
+
+const cancelEditDescription = () => {
+  editingDescription.value = false
+  descriptionEdit.value = ''
+}
+
+const saveDescription = async () => {
+  if (!teamId.value || isNaN(teamId.value)) {
+    ElMessage.error('无效的团队 ID')
+    return
+  }
+
+  savingDescription.value = true
+  try {
+    const response = await request.put(`/teams/${teamId.value}`, {
+      description: descriptionEdit.value
+    })
+    
+    // 处理响应
+    const updatedTeam = (response && typeof response === 'object' && 'data' in response) 
+      ? (response as any).data 
+      : response
+    
+    teamInfo.value.description = updatedTeam.description || descriptionEdit.value
+    editingDescription.value = false
+    ElMessage.success('描述已更新')
+  } catch (error: any) {
+    console.error('Failed to update description:', error)
+    ElMessage.error(error?.message || '更新描述失败')
+  } finally {
+    savingDescription.value = false
+  }
+}
+
 const getRoleLabel = (role: string) => {
   const roleMap: Record<string, string> = {
     OWNER: '创建者',
@@ -811,10 +897,24 @@ onMounted(() => {
       background-clip: text;
     }
 
-    .description {
-      color: var(--text-color-muted);
+    .description-section {
       margin-bottom: var(--spacing-lg);
-      line-height: 1.6;
+      
+      .description {
+        color: var(--text-color-muted);
+        line-height: 1.6;
+        margin: 0 0 8px 0;
+      }
+      
+      .description-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      
+      :deep(.el-textarea) {
+        margin-bottom: 8px;
+      }
     }
 
     .stats-row {

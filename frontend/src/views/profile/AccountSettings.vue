@@ -23,7 +23,7 @@
             <div class="setting-item">
               <div class="setting-info">
                 <div class="setting-label">学号/工号</div>
-                <div class="setting-value">{{ userInfo.studentId || '-' }}</div>
+                <div class="setting-value">{{ userInfo.userCode || '-' }}</div>
                 <div class="setting-desc">学号/工号不可修改</div>
               </div>
             </div>
@@ -74,6 +74,84 @@
               <el-button type="primary" text @click="showPasswordDialog = true">修改密码</el-button>
             </div>
           </div>
+        </el-card>
+
+        <!-- 组队意向设置 -->
+        <el-card shadow="never" class="settings-card" style="margin-top: 20px">
+          <template #header>
+            <span class="card-title">组队意向设置</span>
+          </template>
+          <el-form :model="availabilityForm" label-width="140px" class="availability-form">
+            <!-- 上墙开关 -->
+            <el-form-item label="我正在寻找项目/队伍">
+              <div class="switch-wrapper">
+                <el-switch v-model="availabilityForm.isAvailable" />
+                <span class="hint">勾选后会出现在人才墙，让项目发起人找到你</span>
+              </div>
+            </el-form-item>
+
+            <!-- 组队意向（多选） -->
+            <el-form-item label="组队意向" v-if="availabilityForm.isAvailable">
+              <el-checkbox-group v-model="availabilityForm.intentions">
+                <el-checkbox label="JOIN_PROJECT">寻找项目加入</el-checkbox>
+                <el-checkbox label="FIND_TEAMMATES">寻找队友组队</el-checkbox>
+                <el-checkbox label="FIND_MENTOR">寻找导师指导</el-checkbox>
+                <el-checkbox label="HELP_NEWBIE">愿意帮助新手</el-checkbox>
+              </el-checkbox-group>
+            </el-form-item>
+
+            <!-- 可见范围 -->
+            <el-form-item label="可见范围" v-if="availabilityForm.isAvailable">
+              <el-radio-group v-model="availabilityForm.visibility">
+                <el-radio label="PUBLIC">所有人可见</el-radio>
+                <el-radio label="PROJECT_CREATOR">仅项目创建者可见</el-radio>
+                <el-radio label="MENTOR">仅导师可见</el-radio>
+              </el-radio-group>
+            </el-form-item>
+
+            <!-- 可用时间段 -->
+            <el-form-item label="可用时间段（可选）" v-if="availabilityForm.isAvailable">
+              <el-date-picker
+                v-model="dateRange"
+                type="daterange"
+                range-separator="至"
+                start-placeholder="开始日期"
+                end-placeholder="结束日期"
+                @change="handleDateRangeChange"
+                style="width: 100%"
+              />
+            </el-form-item>
+
+            <!-- 每周可投入时间 -->
+            <el-form-item label="每周可投入时间（可选）" v-if="availabilityForm.isAvailable">
+              <el-input-number 
+                v-model="availabilityForm.weeklyHours" 
+                :min="0" 
+                :max="168"
+                placeholder="小时/周"
+              />
+              <span class="hint" style="margin-left: 10px">小时/周</span>
+            </el-form-item>
+
+            <!-- 补充说明 -->
+            <el-form-item label="补充说明（可选）" v-if="availabilityForm.isAvailable">
+              <el-input
+                v-model="availabilityForm.notes"
+                type="textarea"
+                :rows="3"
+                placeholder="例如：希望参与Web开发项目，有React经验"
+                maxlength="200"
+                show-word-limit
+              />
+            </el-form-item>
+
+            <!-- 保存按钮 -->
+            <el-form-item>
+              <el-button type="primary" @click="handleSaveAvailability" :loading="savingAvailability">
+                保存设置
+              </el-button>
+            </el-form-item>
+          </el-form>
         </el-card>
       </el-col>
 
@@ -176,7 +254,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/store/auth'
 import { ElMessage } from 'element-plus'
 import { Warning, Lock, Message } from '@element-plus/icons-vue'
-import { getUserById, updateUser } from '@/api/user'
+import { getUserById, updateUser, getUserAvailability, updateUserAvailability, type UserAvailabilityRequest } from '@/api/user'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -188,6 +266,19 @@ const showPhoneDialog = ref(false)
 const showPasswordDialog = ref(false)
 const saving = ref(false)
 const changingPassword = ref(false)
+
+// 组队意向相关状态
+const savingAvailability = ref(false)
+const dateRange = ref<[Date, Date] | null>(null)
+const availabilityForm = reactive({
+  isAvailable: false,
+  intentions: [] as string[],
+  visibility: 'PUBLIC',
+  availableFrom: undefined as string | undefined,
+  availableUntil: undefined as string | undefined,
+  weeklyHours: undefined as number | undefined,
+  notes: ''
+})
 
 const usernameFormRef = ref()
 const emailFormRef = ref()
@@ -222,7 +313,7 @@ const usernameRules = {
 const emailRules = {
   email: [
     { required: true, message: '请输入邮箱', trigger: 'blur' },
-    { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
+    { type: 'email' as const, message: '请输入正确的邮箱格式', trigger: 'blur' }
   ]
 }
 
@@ -259,7 +350,7 @@ const loadUserInfo = async () => {
     // 如果没有用户ID，使用 store 中的数据
     userInfo.value = {
       username: authStore.user?.username || '',
-      studentId: authStore.user?.studentId || '',
+      userCode: authStore.user?.userCode || '',
       email: authStore.user?.email || '',
       phone: authStore.user?.phone || ''
     }
@@ -270,7 +361,7 @@ const loadUserInfo = async () => {
     const data = await getUserById(authStore.user.id)
     userInfo.value = {
       username: data.username || authStore.user.username || '',
-      studentId: data.studentId || authStore.user.studentId || '',
+      userCode: data.userCode || authStore.user.userCode || '',
       email: data.email || authStore.user.email || '',
       phone: data.phone || authStore.user.phone || ''
     }
@@ -279,7 +370,7 @@ const loadUserInfo = async () => {
     // 失败时使用 store 中的数据
     userInfo.value = {
       username: authStore.user?.username || '',
-      studentId: authStore.user?.studentId || '',
+      userCode: authStore.user?.userCode || '',
       email: authStore.user?.email || '',
       phone: authStore.user?.phone || ''
     }
@@ -386,8 +477,75 @@ const changePassword = async () => {
   })
 }
 
+// 加载组队意向设置
+const loadAvailability = async () => {
+  try {
+    const data = await getUserAvailability()
+    availabilityForm.isAvailable = data.isAvailable
+    availabilityForm.intentions = data.intentions || []
+    availabilityForm.visibility = data.visibility || 'PUBLIC'
+    availabilityForm.weeklyHours = data.weeklyHours
+    availabilityForm.notes = data.notes || ''
+    
+    // 处理日期范围
+    if (data.availableFrom && data.availableUntil) {
+      dateRange.value = [
+        new Date(data.availableFrom),
+        new Date(data.availableUntil)
+      ]
+      availabilityForm.availableFrom = data.availableFrom
+      availabilityForm.availableUntil = data.availableUntil
+    }
+  } catch (error: any) {
+    console.error('加载组队意向失败:', error)
+    // 失败时使用默认值
+  }
+}
+
+// 处理日期范围变化
+const handleDateRangeChange = (value: [Date, Date] | null) => {
+  if (value) {
+    availabilityForm.availableFrom = value[0].toISOString().split('T')[0]
+    availabilityForm.availableUntil = value[1].toISOString().split('T')[0]
+  } else {
+    availabilityForm.availableFrom = undefined
+    availabilityForm.availableUntil = undefined
+  }
+}
+
+// 保存组队意向设置
+const handleSaveAvailability = async () => {
+  // 验证
+  if (availabilityForm.isAvailable && availabilityForm.intentions.length === 0) {
+    ElMessage.warning('请至少选择一个组队意向')
+    return
+  }
+  
+  savingAvailability.value = true
+  try {
+    const requestData: UserAvailabilityRequest = {
+      isAvailable: availabilityForm.isAvailable,
+      intentions: availabilityForm.intentions,
+      visibility: availabilityForm.visibility,
+      availableFrom: availabilityForm.availableFrom,
+      availableUntil: availabilityForm.availableUntil,
+      weeklyHours: availabilityForm.weeklyHours,
+      notes: availabilityForm.notes
+    }
+    
+    await updateUserAvailability(requestData)
+    ElMessage.success('保存成功')
+  } catch (error: any) {
+    console.error('保存失败:', error)
+    ElMessage.error(error.message || '保存失败')
+  } finally {
+    savingAvailability.value = false
+  }
+}
+
 onMounted(() => {
   loadUserInfo()
+  loadAvailability()
 })
 </script>
 
@@ -484,6 +642,38 @@ onMounted(() => {
         }
       }
     }
+  }
+}
+
+.availability-form {
+  padding: 20px 0;
+
+  .switch-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    .hint {
+      font-size: 12px;
+      color: var(--text-color-muted);
+    }
+  }
+
+  .el-checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .el-radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .hint {
+    font-size: 12px;
+    color: var(--text-color-muted);
   }
 }
 </style>

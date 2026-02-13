@@ -64,12 +64,17 @@ export default defineConfig(({ command }) => {
       hmr: {
         overlay: true,
       },
-      // 预热常用文件
+      // 预热常用文件 - 扩展预热列表
       warmup: {
         clientFiles: [
           './src/layouts/AppLayout.vue',
           './src/views/auth/Login.vue',
           './src/views/project/ProjectSquare.vue',
+          './src/views/ecosystem/EcosystemHub.vue',
+          './src/views/competition/CompetitionList.vue',
+          './src/components/common/**/*.vue',
+          './src/store/**/*.ts',
+          './src/router/index.ts',
         ],
       },
       proxy: {
@@ -173,7 +178,9 @@ export default defineConfig(({ command }) => {
         '@tiptap/starter-kit',
         'lowlight',
       ],
-      force: true,
+      // 移除 force: true，让 Vite 使用缓存
     },
+    // 添加缓存配置
+    cacheDir: 'node_modules/.vite',
   }
 })

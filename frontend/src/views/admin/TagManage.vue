@@ -277,7 +277,7 @@ const statisticsDialogVisible = ref(false)
 const fetchTagList = async () => {
   loading.value = true
   try {
-    const { data } = await request.get('/api/admin/tags', {
+    const { data } = await request.get('/admin/tags', {
       params: {
         page: pagination.page,
         size: pagination.size,
@@ -340,10 +340,10 @@ const handleSubmit = async () => {
     if (valid) {
       try {
         if (isEdit.value) {
-          await request.put(`/api/admin/tags/${form.id}`, form)
+          await request.put(`/admin/tags/${form.id}`, form)
           ElMessage.success('更新成功')
         } else {
-          await request.post('/api/admin/tags', form)
+          await request.post('/admin/tags', form)
           ElMessage.success('创建成功')
         }
         formDialogVisible.value = false
@@ -362,7 +362,7 @@ const handleMerge = async (row: any) => {
   
   // 获取相同分类的其他标签
   try {
-    const { data } = await request.get('/api/admin/tags', {
+    const { data } = await request.get('/admin/tags', {
       params: {
         page: 1,
         size: 100,
@@ -382,7 +382,7 @@ const handleSubmitMerge = async () => {
   await mergeFormRef.value.validate(async (valid) => {
     if (valid) {
       try {
-        await request.post('/api/admin/tags/merge', mergeForm)
+        await request.post('/admin/tags/merge', mergeForm)
         ElMessage.success('合并成功')
         mergeDialogVisible.value = false
         fetchTagList()
@@ -404,7 +404,7 @@ const handleDelete = (row: any) => {
     }
   ).then(async () => {
     try {
-      await request.delete(`/api/admin/tags/${row.id}`)
+      await request.delete(`/admin/tags/${row.id}`)
       ElMessage.success('删除成功')
       fetchTagList()
     } catch (error) {
@@ -415,7 +415,7 @@ const handleDelete = (row: any) => {
 
 const handleViewStatistics = async () => {
   try {
-    const { data } = await request.get('/api/admin/tags/statistics', {
+    const { data } = await request.get('/admin/tags/statistics', {
       params: { limit: 50 }
     })
     statisticsList.value = data

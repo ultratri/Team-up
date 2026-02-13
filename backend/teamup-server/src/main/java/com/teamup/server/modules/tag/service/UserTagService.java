@@ -31,7 +31,7 @@ public interface UserTagService {
     /**
      * 获取用户指定分类的标签（通用）
      */
-    List<UserTagVO> getUserTagsByCategory(Long userId, Tag.TagCategory category);
+    List<UserTagVO> getUserTagsByCategory(Long userId, String category);
     
     /**
      * 添加用户标签（通用）

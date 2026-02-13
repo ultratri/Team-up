@@ -231,7 +231,7 @@ const folderRules = reactive<FormRules>({
 })
 
 const uploadUrl = computed(() => {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
   const params = new URLSearchParams({ teamId: String(props.teamId) })
   if (currentFolderId.value) {
     params.append('folderId', String(currentFolderId.value))

@@ -33,5 +33,6 @@ public class Project {
     private LocalDate endDate;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Long competitionId;  // 关联的比赛ID
 }
 

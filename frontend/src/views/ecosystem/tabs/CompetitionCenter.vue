@@ -161,7 +161,11 @@ const resetFilters = () => {
 }
 
 const handleViewCompetition = (id: number) => {
-  router.push({ name: 'CompetitionDetail', params: { id } })
+  router.push({ 
+    name: 'CompetitionDetail', 
+    params: { id },
+    query: { from: 'ecosystem' }
+  })
 }
 
 const getLevelText = (level: string) => {

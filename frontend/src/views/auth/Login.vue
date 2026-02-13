@@ -32,9 +32,9 @@
           class="auth-form"
           @submit.prevent="handleLogin"
         >
-          <el-form-item prop="studentId" label="学号/工号">
+          <el-form-item prop="userCode" label="学号/工号">
             <el-input 
-              v-model="loginForm.studentId" 
+              v-model="loginForm.userCode" 
               placeholder="请输入学号或工号"
               :prefix-icon="User"
               autocomplete="username"
@@ -110,12 +110,12 @@ const loading = ref(false)
 const rememberMe = ref(localStorage.getItem('rememberMe') === 'true')
 
 const loginForm = reactive({
-  studentId: localStorage.getItem('rememberMe') === 'true' ? (localStorage.getItem('savedStudentId') || '') : '',
+  userCode: localStorage.getItem('rememberMe') === 'true' ? (localStorage.getItem('saveduserCode') || '') : '',
   password: ''
 })
 
 const rules = reactive<FormRules>({
-  studentId: [
+  userCode: [
     { required: true, message: '请输入学号', trigger: 'blur' },
   ],
   password: [
@@ -132,7 +132,7 @@ const handleLogin = async () => {
 
   loading.value = true
   try {
-    console.log('🔐 开始登录...', loginForm.studentId)
+    console.log('🔐 开始登录...', loginForm.userCode)
     const res = await login(loginForm)
     console.log('✅ 登录响应:', res)
     
@@ -146,9 +146,9 @@ const handleLogin = async () => {
     authStore.setUser(res.user, rememberMe.value)
     localStorage.setItem('rememberMe', rememberMe.value ? 'true' : 'false')
     if (rememberMe.value) {
-      localStorage.setItem('savedStudentId', loginForm.studentId)
+      localStorage.setItem('saveduserCode', loginForm.userCode)
     } else {
-      localStorage.removeItem('savedStudentId')
+      localStorage.removeItem('saveduserCode')
     }
     
     ElMessage.success('登录成功')
@@ -163,7 +163,7 @@ const handleLogin = async () => {
     } else {
       // 根据用户角色决定默认跳转页面
       const isAdmin = authStore.hasRole(['PLATFORM_ADMIN'])
-      target = isAdmin ? '/admin' : '/project'
+      target = isAdmin ? '/admin' : '/ecosystem'  // 修改默认跳转到生态广场
     }
     
     console.log('🔀 跳转目标:', target)

@@ -25,7 +25,7 @@ public class AdminInitializer implements CommandLineRunner {
     private final PasswordEncoder passwordEncoder;
 
     // 默认管理员账号信息
-    private static final String DEFAULT_ADMIN_STUDENT_ID = "admin";
+    private static final String DEFAULT_ADMIN_USER_CODE = "admin";
     private static final String DEFAULT_ADMIN_USERNAME = "系统管理员";
     private static final String DEFAULT_ADMIN_EMAIL = "admin@teamup.edu.cn";
     private static final String DEFAULT_ADMIN_PASSWORD = "admin123456"; // 默认密码，首次登录后应修改
@@ -35,13 +35,13 @@ public class AdminInitializer implements CommandLineRunner {
         try {
             // 检查默认管理员是否存在
             LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-            wrapper.eq(User::getStudentId, DEFAULT_ADMIN_STUDENT_ID);
+            wrapper.eq(User::getUserCode, DEFAULT_ADMIN_USER_CODE);
             User admin = userMapper.selectOne(wrapper);
 
             if (admin == null) {
                 // 创建默认管理员账号
                 admin = new User();
-                admin.setStudentId(DEFAULT_ADMIN_STUDENT_ID);
+                admin.setUserCode(DEFAULT_ADMIN_USER_CODE);
                 admin.setUsername(DEFAULT_ADMIN_USERNAME);
                 admin.setPassword(passwordEncoder.encode(DEFAULT_ADMIN_PASSWORD));
                 admin.setEmail(DEFAULT_ADMIN_EMAIL);
@@ -59,7 +59,7 @@ public class AdminInitializer implements CommandLineRunner {
 
                 System.out.println("========================================");
                 System.out.println("✅ 默认管理员账号已创建");
-                System.out.println("学号: " + DEFAULT_ADMIN_STUDENT_ID);
+                System.out.println("学号: " + DEFAULT_ADMIN_USER_CODE);
                 System.out.println("密码: " + DEFAULT_ADMIN_PASSWORD);
                 System.out.println("用户ID: " + admin.getId());
                 System.out.println("⚠️  请首次登录后立即修改密码！");
@@ -67,7 +67,7 @@ public class AdminInitializer implements CommandLineRunner {
             } else {
                 System.out.println("========================================");
                 System.out.println("ℹ️  默认管理员账号已存在");
-                System.out.println("学号: " + DEFAULT_ADMIN_STUDENT_ID);
+                System.out.println("学号: " + DEFAULT_ADMIN_USER_CODE);
                 System.out.println("用户ID: " + admin.getId());
                 System.out.println("========================================");
                 

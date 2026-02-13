@@ -19,7 +19,7 @@ import java.util.List;
  * 管理员团队管理接口
  */
 @RestController
-@RequestMapping("/api/admin/teams")
+@RequestMapping("/admin/teams")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('PLATFORM_ADMIN')")
 public class AdminTeamController {

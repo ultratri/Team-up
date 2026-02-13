@@ -42,7 +42,7 @@ import java.util.Map;
  * 后续可根据需要增加更细权限控制（如仅管理员/教务可写）
  */
 @RestController
-@RequestMapping("/api/competitions")
+@RequestMapping("/competitions")
 @RequiredArgsConstructor
 public class CompetitionController {
 
@@ -76,7 +76,7 @@ public class CompetitionController {
      * 比赛列表（分页 + 简单筛选）
      */
     @GetMapping
-    public Result<Page<Competition>> list(
+    public Result<Page<com.teamup.server.modules.competition.vo.CompetitionVO>> list(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String status,
@@ -94,7 +94,27 @@ public class CompetitionController {
         }
         wrapper.orderByDesc(Competition::getSignupStartAt);
 
-        Page<Competition> result = competitionService.page(pageParam, wrapper);
+        Page<Competition> competitionPage = competitionService.page(pageParam, wrapper);
+        
+        // 转换为CompetitionVO并添加队伍数量
+        Page<com.teamup.server.modules.competition.vo.CompetitionVO> result = new Page<>(page, size);
+        result.setTotal(competitionPage.getTotal());
+        
+        List<com.teamup.server.modules.competition.vo.CompetitionVO> voList = new ArrayList<>();
+        for (Competition competition : competitionPage.getRecords()) {
+            com.teamup.server.modules.competition.vo.CompetitionVO vo = 
+                com.teamup.server.modules.competition.vo.CompetitionVO.fromEntity(competition);
+            
+            // 查询队伍数量
+            LambdaQueryWrapper<Team> teamWrapper = new LambdaQueryWrapper<>();
+            teamWrapper.eq(Team::getCompetitionId, competition.getId());
+            long teamCount = teamMapper.selectCount(teamWrapper);
+            vo.setTeamCount((int) teamCount);
+            
+            voList.add(vo);
+        }
+        result.setRecords(voList);
+        
         long cost = System.currentTimeMillis() - start;
         log.info("metrics|endpoint=competitions.list page={} size={} status={} keyword={} costMs={}",
                 page, size, status, keyword, cost);
@@ -163,11 +183,22 @@ public class CompetitionController {
      * 比赛详情
      */
     @GetMapping("/{id}")
-    public Result<Competition> detail(@PathVariable Long id) {
+    public Result<com.teamup.server.modules.competition.vo.CompetitionVO> detail(@PathVariable Long id) {
         Competition competition = competitionService.getById(id);
         if (competition == null) {
             return Result.error(404, "比赛不存在");
         }
+        
+        // 转换为CompetitionVO并添加队伍数量
+        com.teamup.server.modules.competition.vo.CompetitionVO vo = 
+            com.teamup.server.modules.competition.vo.CompetitionVO.fromEntity(competition);
+        
+        // 查询队伍数量
+        LambdaQueryWrapper<Team> teamWrapper = new LambdaQueryWrapper<>();
+        teamWrapper.eq(Team::getCompetitionId, id);
+        long teamCount = teamMapper.selectCount(teamWrapper);
+        vo.setTeamCount((int) teamCount);
+        
         // 记录浏览量（Redis不可用时自动降级）
         try {
             redisTemplate.opsForValue().increment(viewKey(id), 1);
@@ -178,7 +209,7 @@ public class CompetitionController {
             redisTemplate.opsForValue().increment(dailyViewKey(id, today), 1);
         } catch (Exception ignored) {
         }
-        return Result.success(competition);
+        return Result.success(vo);
     }
 
     /**
@@ -590,8 +621,11 @@ public class CompetitionController {
     /**
      * 获取某个比赛下的队伍列表（分页）
      */
+    /**
+     * 获取某个比赛下的队伍列表（分页）
+     */
     @GetMapping("/{id}/teams")
-    public Result<Page<Team>> listTeams(
+    public Result<Page<com.teamup.server.modules.team.vo.TeamVO>> listTeams(
             @PathVariable Long id,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size
@@ -601,7 +635,28 @@ public class CompetitionController {
         LambdaQueryWrapper<Team> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Team::getCompetitionId, id);
         wrapper.orderByDesc(Team::getCreatedAt);
-        Page<Team> result = teamService.page(pageParam, wrapper);
+        Page<Team> teamPage = teamService.page(pageParam, wrapper);
+        
+        // 转换为TeamVO并添加成员数量
+        Page<com.teamup.server.modules.team.vo.TeamVO> result = new Page<>(page, size);
+        result.setTotal(teamPage.getTotal());
+        
+        List<com.teamup.server.modules.team.vo.TeamVO> voList = new ArrayList<>();
+        for (Team team : teamPage.getRecords()) {
+            com.teamup.server.modules.team.vo.TeamVO vo = 
+                com.teamup.server.modules.team.vo.TeamVO.fromEntity(team);
+            
+            // 查询成员数量
+            LambdaQueryWrapper<com.teamup.server.modules.team.entity.TeamMember> memberWrapper = 
+                new LambdaQueryWrapper<>();
+            memberWrapper.eq(com.teamup.server.modules.team.entity.TeamMember::getTeamId, team.getId());
+            long memberCount = teamMemberMapper.selectCount(memberWrapper);
+            vo.setMemberCount((int) memberCount);
+            
+            voList.add(vo);
+        }
+        result.setRecords(voList);
+        
         long cost = System.currentTimeMillis() - start;
         log.info("metrics|endpoint=competitions.teams competitionId={} page={} size={} resultCount={} costMs={}",
                 id, page, size, result.getTotal(), cost);

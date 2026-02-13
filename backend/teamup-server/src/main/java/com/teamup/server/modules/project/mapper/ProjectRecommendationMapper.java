@@ -13,7 +13,7 @@ public interface ProjectRecommendationMapper extends BaseMapper<ProjectRecommend
     /**
      * 查询项目的推荐列表（包含用户简要信息）
      */
-    @Select("SELECT r.*, u.username, u.student_id, p.avatar_url, p.department, p.major " +
+    @Select("SELECT r.*, u.username, u.user_code, p.avatar_url, p.department, p.major " +
             "FROM project_recommendations r " +
             "LEFT JOIN users u ON r.user_id = u.id " +
             "LEFT JOIN user_profiles p ON r.user_id = p.user_id " +

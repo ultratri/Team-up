@@ -28,7 +28,7 @@ public interface UserService {
     /**
      * 根据学号获取用户
      */
-    User getUserByStudentId(String studentId);
+    User getUserByUserCode(String userCode);
 
     /**
      * 搜索用户（按用户名、学号、邮箱）

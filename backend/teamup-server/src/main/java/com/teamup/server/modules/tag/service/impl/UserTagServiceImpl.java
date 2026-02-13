@@ -45,10 +45,10 @@ public class UserTagServiceImpl extends ServiceImpl<UserTagMapper, UserTag> impl
         if (tag == null) {
             throw new BusinessException("标签不存在");
         }
-        if (tag.getCategory() != Tag.TagCategory.SKILL) {
+        if (!"SKILL".equals(tag.getCategory())) {
             throw new BusinessException("只能添加技能类标签");
         }
-        if (tag.getStatus() != Tag.TagStatus.ACTIVE) {
+        if (!"ACTIVE".equals(tag.getStatus())) {
             throw new BusinessException("该标签已被禁用");
         }
         
@@ -101,8 +101,8 @@ public class UserTagServiceImpl extends ServiceImpl<UserTagMapper, UserTag> impl
     }
     
     @Override
-    public List<UserTagVO> getUserTagsByCategory(Long userId, Tag.TagCategory category) {
-        return userTagMapper.selectUserTagsByCategory(userId, category.name());
+    public List<UserTagVO> getUserTagsByCategory(Long userId, String category) {
+        return userTagMapper.selectUserTagsByCategory(userId, category);
     }
     
     @Override
@@ -115,7 +115,7 @@ public class UserTagServiceImpl extends ServiceImpl<UserTagMapper, UserTag> impl
         if (tag == null) {
             throw new BusinessException("标签不存在");
         }
-        if (tag.getStatus() != Tag.TagStatus.ACTIVE) {
+        if (!"ACTIVE".equals(tag.getStatus())) {
             throw new BusinessException("该标签已被禁用");
         }
         

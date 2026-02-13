@@ -16,9 +16,9 @@ public class Team {
     private Long id;
     
     /**
-     * 团队类型：PROJECT / COMPETITION
+     * 团队性质：TEMPORARY（临时）/ LONG_TERM（长期）
      */
-    private String type;
+    private String teamNature;
 
     /**
      * 关联的比赛ID（仅比赛队伍使用）
@@ -39,6 +39,17 @@ public class Team {
      * 指导老师用户ID（可为空）
      */
     private Long mentorId;
+    
+    /**
+     * 团队状态：ACTIVE（活跃）/ INACTIVE（不活跃）/ DISSOLVED（已解散）
+     */
+    private String status;
+    
+    /**
+     * 来源项目ID（从项目创建的团队）
+     */
+    private Long sourceProjectId;
+    
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

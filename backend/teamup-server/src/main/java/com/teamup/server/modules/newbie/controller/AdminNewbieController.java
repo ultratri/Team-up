@@ -17,7 +17,7 @@ import java.util.Map;
  * 管理员 - 新手保护管理控制器
  */
 @RestController
-@RequestMapping("/api/admin/newbie")
+@RequestMapping("/admin/newbie")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('PLATFORM_ADMIN')")
 public class AdminNewbieController {

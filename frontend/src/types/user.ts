@@ -7,7 +7,7 @@ export type UserRole =
 
 export interface User {
   id: number
-  studentId: string
+  userCode: string
   username: string
   email: string
   phone?: string

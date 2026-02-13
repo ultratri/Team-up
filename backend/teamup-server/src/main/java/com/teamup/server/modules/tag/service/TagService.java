@@ -36,7 +36,7 @@ public interface TagService {
     /**
      * 查询标签列表
      */
-    Page<Tag> listTags(int page, int size, Tag.TagCategory category, String keyword);
+    Page<Tag> listTags(int page, int size, String category, String keyword);
     
     /**
      * 查询标签详情
@@ -51,5 +51,5 @@ public interface TagService {
     /**
      * 查询热门标签
      */
-    List<Tag> getPopularTags(Tag.TagCategory category, int limit);
+    List<Tag> getPopularTags(String category, int limit);
 }

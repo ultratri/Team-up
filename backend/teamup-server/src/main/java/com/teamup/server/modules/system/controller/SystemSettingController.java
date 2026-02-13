@@ -28,7 +28,6 @@ public class SystemSettingController {
      * 获取指定分组的设置（公开访问，用于前端显示站点信息）
      */
     @GetMapping("/{group}")
-    @PreAuthorize("isAuthenticated()")
     public Result<Map<String, Object>> getSettingsByGroup(@PathVariable String group) {
         return Result.success(service.getSettingsByGroup(group));
     }

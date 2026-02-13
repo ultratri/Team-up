@@ -9,7 +9,7 @@ import jakarta.validation.constraints.Size;
  */
 @Data
 public class UserUpdateRequest {
-    private String studentId;
+    private String userCode;
     
     @Size(min = 2, max = 50, message = "用户名长度在2-50之间")
     private String username;

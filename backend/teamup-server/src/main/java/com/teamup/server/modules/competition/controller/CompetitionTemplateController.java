@@ -19,7 +19,7 @@ import java.util.Map;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @RestController
-@RequestMapping("/api/competition-templates")
+@RequestMapping("/competition-templates")
 @RequiredArgsConstructor
 public class CompetitionTemplateController {
 

@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
  * 生态广场控制器
  */
 @RestController
-@RequestMapping("/api/ecosystem")
+@RequestMapping("/ecosystem")
 @RequiredArgsConstructor
 public class EcosystemController {
     
@@ -55,12 +55,7 @@ public class EcosystemController {
             @RequestParam(defaultValue = "12") Integer size,
             @RequestParam(required = false) String type,
             @RequestParam(defaultValue = "latest") String sortBy) {
-        Long userId = null;
-        try {
-            userId = SecurityUtils.getUserId();
-        } catch (Exception e) {
-            // 未登录用户也可以浏览
-        }
+        Long userId = SecurityUtils.getUserIdOrNull();
         Page<ResourceVO> result = resourceService.getResourceList(page, size, type, sortBy, userId);
         return Result.success(result);
     }
@@ -70,12 +65,7 @@ public class EcosystemController {
      */
     @GetMapping("/resources/{id}")
     public Result<ResourceVO> getResourceDetail(@PathVariable Long id) {
-        Long userId = null;
-        try {
-            userId = SecurityUtils.getUserId();
-        } catch (Exception e) {
-            // 未登录用户也可以浏览
-        }
+        Long userId = SecurityUtils.getUserIdOrNull();
         ResourceVO resource = resourceService.getResourceDetail(id, userId);
         return Result.success(resource);
     }
@@ -130,12 +120,7 @@ public class EcosystemController {
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "10") Integer size,
             @RequestParam(required = false) String type) {
-        Long userId = null;
-        try {
-            userId = SecurityUtils.getUserId();
-        } catch (Exception e) {
-            // 未登录用户也可以浏览
-        }
+        Long userId = SecurityUtils.getUserIdOrNull();
         Page<MomentVO> result = momentService.getMomentList(page, size, type, userId);
         return Result.success(result);
     }
