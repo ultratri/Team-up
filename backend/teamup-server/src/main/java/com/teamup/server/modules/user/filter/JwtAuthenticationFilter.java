@@ -69,8 +69,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         } catch (Exception e) {
             logger.error("无法设置用户认证: " + e.getMessage(), e);
-            // 如果 token 验证失败，继续执行，让 Spring Security 处理未认证请求
-            // 这样对于需要认证的接口会返回 401，而不是 403
         }
         
         filterChain.doFilter(request, response);

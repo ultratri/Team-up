@@ -324,7 +324,6 @@ const router = createRouter({
 
 // 路由守卫
 router.beforeEach(async (to, from, next) => {
-  console.log('Navigating from:', from.name, 'to:', to.name, 'params:', to.params);
   const authStore = useAuthStore()
   
   // 如果是登录或注册页面，直接放行
@@ -340,7 +339,6 @@ router.beforeEach(async (to, from, next) => {
   
   // 需要认证的页面
   if (!authStore.isAuthenticated) {
-    console.log('❌ 未认证，token:', authStore.token ? '存在' : '不存在', 'user:', authStore.user ? '存在' : '不存在');
     ElMessage.error('未认证，请先登录')
     next({ name: 'Login', query: { redirect: to.fullPath } })
     return
@@ -348,7 +346,6 @@ router.beforeEach(async (to, from, next) => {
   
   // 检查角色权限
   if (to.meta.roles && !authStore.hasRole(to.meta.roles as string[])) {
-    console.log('❌ 权限不足，需要角色:', to.meta.roles, '当前角色:', authStore.user?.roles);
     ElMessage.warning('权限不足，无法访问该页面')
     next({ name: 'Project' })
     return
@@ -363,14 +360,7 @@ router.beforeEach(async (to, from, next) => {
     const u: any = authStore.user
     const p: any = u?.profile
     
-    console.log('🔍 检查profile完整性:', { 
-      hasUser: !!u, 
-      hasProfile: !!p,
-      profile: p 
-    })
-    
     if (!p) {
-      console.log('❌ profile不存在')
       return false
     }
 
@@ -389,22 +379,17 @@ router.beforeEach(async (to, from, next) => {
     const isComplete = requiredKeys.every((k) => {
       const v = p?.[k]
       if (v === null || v === undefined) {
-        console.log(`❌ 字段 ${k} 为空`)
         return false
       }
       if (typeof v === 'string' && v.trim().length === 0) {
-        console.log(`❌ 字段 ${k} 为空字符串`)
         return false
       }
       if (typeof v === 'number' && v === 0) {
-        console.log(`❌ 字段 ${k} 为0`)
         return false
       }
-      console.log(`✅ 字段 ${k} 有效:`, v)
       return true
     })
     
-    console.log('Profile完整性检查结果:', isComplete)
     return isComplete
   }
 
@@ -427,7 +412,7 @@ router.beforeEach(async (to, from, next) => {
 
   // 未完善资料：仅允许浏览类页面，其它功能一律引导去“我的”完善
   if (!isProfileComplete() && !allowBrowseRoutes.has(String(to.name || ''))) {
-    console.log('Redirecting to Profile due to incomplete profile. Current route:', to.name);
+
     ElMessage.warning('请先在“我的”页面完善个人资料后再使用该功能')
     next({ name: 'Profile' })
     return

@@ -3,7 +3,7 @@ import { ElMessage, ElNotification } from 'element-plus'
 import { useAuthStore } from '../store/auth'
 import router from '../router'
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || `${window.location.protocol}//${window.location.hostname}:8080`
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || `${window.location.protocol}//${window.location.hostname}:8080/api`
 
 // 创建axios实例
 const service: AxiosInstance = axios.create({
@@ -25,20 +25,46 @@ interface FailedRequest {
 
 const failedRequests: Map<string, FailedRequest> = new Map()
 
+// 防止重复显示错误消息
+let lastErrorMessage = ''
+let lastErrorTime = 0
+
+function showErrorMessage(message: string, type: 'error' | 'warning' = 'error', duration: number = 3000) {
+  const now = Date.now()
+  // 如果是相同的错误消息且在 1 秒内，不重复显示
+  if (message === lastErrorMessage && now - lastErrorTime < 1000) {
+    return
+  }
+  
+  lastErrorMessage = message
+  lastErrorTime = now
+  
+  if (type === 'error') {
+    ElMessage.error({
+      message,
+      duration,
+      showClose: true
+    })
+  } else {
+    ElMessage.warning({
+      message,
+      duration,
+      showClose: true
+    })
+  }
+}
+
 // 请求拦截器
 service.interceptors.request.use(
   (config) => {
     requestCount++
     
-    // 添加token到请求头 - 直接从localStorage获取，确保可靠性
+    // 添加token到请求头
     const authStore = useAuthStore()
     const token = authStore.token || localStorage.getItem('token') || sessionStorage.getItem('token')
     
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
-      console.log('🔑 Request with token:', config.url, 'Token:', token.substring(0, 20) + '...')
-    } else {
-      console.warn('⚠️ Request without token:', config.url, 'authStore.token:', authStore.token, 'localStorage:', localStorage.getItem('token'))
     }
     
     return config
@@ -66,7 +92,8 @@ service.interceptors.response.use(
       // 检查是否是登录接口，如果是则不在拦截器中显示错误，让组件自己处理
       const isLoginRequest = response.config?.url?.includes('/auth/login')
       
-      if (!isLoginRequest) {
+      // 401 错误不在这里处理，交给错误拦截器统一处理
+      if (!isLoginRequest && res.code !== 401) {
         // 如果有详细的错误信息（如验证错误），显示详细信息
         if (res.errors && Array.isArray(res.errors)) {
           const errorDetails = res.errors.map((err: any) => 
@@ -91,8 +118,9 @@ service.interceptors.response.use(
       return Promise.reject(new Error(errorMessage))
     }
     
-    // 返回完整的响应对象（包含 code, message, data），让调用方自己处理
-    return res
+    // 返回 data 字段，这样调用方可以直接使用数据
+    // 如果 data 是 undefined 或 null，返回空对象避免前端报错
+    return res.data !== undefined && res.data !== null ? res.data : {}
   },
   (error) => {
     requestCount--
@@ -131,22 +159,42 @@ service.interceptors.response.use(
           }
           break
         case 401:
-          // 处理未认证错误 - 跳转到登录页
-          ElMessage.error({
-            message: '登录已过期，请重新登录',
-            duration: 3000,
-            showClose: true
-          })
-          // 清除本地存储
-          const authStore = useAuthStore()
-          authStore.logout()
-          // 延迟跳转，确保消息显示
-          setTimeout(() => {
-            router.push({ 
-              name: 'Login',
-              query: { redirect: router.currentRoute.value.fullPath }
-            })
-          }, 500)
+          // 处理未认证错误
+          // 只有在明确是 token 过期或无效时才登出
+          const shouldLogout = data?.message?.includes('过期') || 
+                              data?.message?.includes('无效') ||
+                              data?.message?.includes('expired') ||
+                              data?.message?.includes('invalid')
+          
+          if (shouldLogout) {
+            showErrorMessage('登录已过期，请重新登录', 'error')
+            // 清除本地存储
+            const authStore = useAuthStore()
+            authStore.logout()
+            // 延迟跳转，确保消息显示
+            setTimeout(() => {
+              router.push({ 
+                name: 'Login',
+                query: { redirect: router.currentRoute.value.fullPath }
+              })
+            }, 500)
+          } else {
+            // 其他 401 错误，只显示消息，不登出
+            // 但是如果确实没有 token，说明用户未登录，应该跳转到登录页
+            const hasToken = !!error.config?.headers?.Authorization
+            if (!hasToken) {
+              showErrorMessage('请先登录', 'warning')
+              setTimeout(() => {
+                router.push({ 
+                  name: 'Login',
+                  query: { redirect: router.currentRoute.value.fullPath }
+                })
+              }, 500)
+            } else {
+              // 有 token 但是认证失败，可能是后端问题
+              showErrorMessage(message || '认证失败，请刷新页面重试', 'warning')
+            }
+          }
           break
         case 403:
           // 处理权限不足错误 - 显示警告消息
@@ -170,13 +218,6 @@ service.interceptors.response.use(
             message: '服务器错误，请稍后重试',
             duration: 3000,
             showClose: true
-          })
-          // 记录错误日志
-          console.error('Server error:', {
-            url: error.config?.url,
-            method: error.config?.method,
-            status,
-            data
           })
           break
         case 502:
@@ -249,7 +290,6 @@ service.interceptors.response.use(
       })
     } else {
       // 其他错误
-      console.error('Request error:', error)
       ElMessage.error({
         message: error.message || '请求失败，请稍后重试',
         duration: 3000,

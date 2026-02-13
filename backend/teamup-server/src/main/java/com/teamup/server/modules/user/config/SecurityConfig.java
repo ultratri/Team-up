@@ -46,33 +46,12 @@ public class SecurityConfig {
             // 配置Session为无状态
             .sessionManagement(session -> 
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            // 配置授权规则
+            // 完全放行所有请求，认证由 JWT 过滤器和拦截器处理
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/auth/**").permitAll()  // 认证接口放行
-                .requestMatchers("/actuator/**").permitAll()  // 健康检查接口放行
-                .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()  // 上传文件访问放行
-                .requestMatchers(HttpMethod.GET, "/projects/**").permitAll()  // 项目广场浏览接口放行
-                .requestMatchers(HttpMethod.GET, "/profile/**").permitAll()   // 用户资料查看接口放行
-                .requestMatchers(HttpMethod.GET, "/notifications/unread-count").permitAll()  // 未读通知数量接口放行
-                .requestMatchers(HttpMethod.GET, "/search/**").permitAll()  // 搜索接口放行
-                .requestMatchers(HttpMethod.GET, "/stats/**").permitAll()  // 统计接口放行
-                .requestMatchers(HttpMethod.GET, "/api/ecosystem/**").permitAll()  // 生态广场浏览接口放行
-                .requestMatchers(HttpMethod.GET, "/api/mentor-relationships/**").permitAll()  // 导师列表浏览接口放行
-                .anyRequest().authenticated()  // 其他请求需要认证
+                .anyRequest().permitAll()
             )
-            // 配置异常处理，确保未认证返回 401 而不是 403
-            .exceptionHandling(exceptions -> exceptions
-                .authenticationEntryPoint((request, response, authException) -> {
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    response.setContentType("application/json;charset=UTF-8");
-                    response.getWriter().write("{\"code\":401,\"message\":\"未认证，请先登录\",\"data\":null}");
-                })
-                .accessDeniedHandler((request, response, accessDeniedException) -> {
-                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                    response.setContentType("application/json;charset=UTF-8");
-                    response.getWriter().write("{\"code\":403,\"message\":\"权限不足\",\"data\":null}");
-                })
-            )
+            // 禁用匿名用户支持，避免Spring Security创建匿名认证
+            .anonymous(anonymous -> anonymous.disable())
             // 添加JWT过滤器
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

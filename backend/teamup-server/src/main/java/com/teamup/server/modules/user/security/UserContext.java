@@ -14,7 +14,8 @@ public class UserContext {
      */
     public static Long getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        
+        if (authentication == null) {
             throw new RuntimeException("未登录");
         }
         
@@ -40,10 +41,17 @@ public class UserContext {
     
     /**
      * 判断是否已登录
+     * 注意：不检查 isAuthenticated()，因为它可能返回 false
+     * 只检查 principal 是否为 CustomUserDetails
      */
     public static boolean isAuthenticated() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return authentication != null && authentication.isAuthenticated();
+        if (authentication == null) {
+            return false;
+        }
+        
+        Object principal = authentication.getPrincipal();
+        return principal instanceof CustomUserDetails;
     }
     
     /**

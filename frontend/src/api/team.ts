@@ -120,7 +120,7 @@ export async function getTeamJoinApplications(
   teamId: number,
   params?: { page?: number; size?: number; status?: string }
 ) {
-  return request.get(`/api/teams/${teamId}/join-applications`, { params }) as any
+  return request.get(`/teams/${teamId}/join-applications`, { params }) as any
 }
 
 /**

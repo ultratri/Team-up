@@ -16,7 +16,6 @@ export const useAuthStore = defineStore('auth', () => {
       const parsed = JSON.parse(storedUser) as User
       initialUser = parsed
       initialRoles = parsed.roles || []
-      console.log('✅ AuthStore初始化: 用户已恢复', { username: parsed.username, roles: initialRoles })
     } catch (e) {
       console.error('❌ AuthStore初始化: 用户信息解析失败', e)
       localStorage.removeItem('user')
@@ -30,13 +29,6 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(initialUser)
   const token = ref<string | null>(getStoredValue('token'))
   const roles = ref<UserRole[]>(initialRoles)
-  
-  console.log('🔐 AuthStore初始化完成:', { 
-    hasUser: !!user.value, 
-    hasToken: !!token.value, 
-    tokenPreview: token.value?.substring(0, 20),
-    roles: roles.value 
-  })
 
   // Getters
   const isAuthenticated = computed(() => !!token.value && !!user.value)
@@ -96,6 +88,30 @@ export const useAuthStore = defineStore('auth', () => {
     return requiredRoles.every((role) => roles.value.includes(role as UserRole))
   }
 
+  /**
+   * 更新当前用户信息（用于profile更新后刷新）
+   */
+  async function refreshUserInfo() {
+    if (!user.value?.id) return
+    
+    try {
+      // 重新获取用户信息
+      const { getUserProfile } = await import('@/api/user')
+      const profile = await getUserProfile(user.value.id)
+      
+      if (user.value && profile) {
+        // 更新用户的profile
+        user.value.profile = profile
+        
+        // 更新localStorage
+        const storage = localStorage.getItem('user') ? localStorage : sessionStorage
+        storage.setItem('user', JSON.stringify(user.value))
+      }
+    } catch (error) {
+      console.error('❌ 刷新用户信息失败', error)
+    }
+  }
+
   return {
     // State
     user,
@@ -112,6 +128,7 @@ export const useAuthStore = defineStore('auth', () => {
     hasRole,
     hasAnyRole,
     hasAllRoles,
+    refreshUserInfo,
   }
 })
 

@@ -39,14 +39,12 @@ class WebSocketService {
     })
 
     this.socket.on('connect', () => {
-      console.log('WebSocket 连接成功')
       this.reconnectAttempts = 0
       this.lastPongTime = Date.now()
       this.startHeartbeat()
     })
 
     this.socket.on('disconnect', (reason) => {
-      console.log('WebSocket 断开连接:', reason)
       this.stopHeartbeat()
       
       // 如果不是主动断开，尝试重连
@@ -81,7 +79,6 @@ class WebSocketService {
 
     // 监听新消息
     this.socket.on('new_message', (message) => {
-      console.log('收到新消息:', message)
       this.trigger('new_message', message)
       
       // 显示通知
@@ -95,7 +92,6 @@ class WebSocketService {
 
     // 监听新通知
     this.socket.on('new_notification', (notification) => {
-      console.log('收到新通知:', notification)
       this.trigger('new_notification', notification)
       
       ElNotification({

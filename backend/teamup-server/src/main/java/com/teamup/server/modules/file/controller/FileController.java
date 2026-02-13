@@ -46,7 +46,7 @@ public class FileController {
      * @param folderId 文件夹ID（可选，null表示根目录）
      * @return 文件列表
      */
-    @GetMapping("/api/teams/{teamId}/files")
+    @GetMapping("/teams/{teamId}/files")
     @PreAuthorize("isAuthenticated()")
     public Result<List<FileVO>> getTeamFiles(
             @PathVariable Long teamId,
@@ -74,7 +74,7 @@ public class FileController {
      * @param fileId 文件ID
      * @param response HTTP响应对象
      */
-    @GetMapping("/api/files/{fileId}/download")
+    @GetMapping("/files/{fileId}/download")
     @PreAuthorize("isAuthenticated()")
     public void downloadFile(
             @PathVariable Long fileId,
@@ -115,7 +115,7 @@ public class FileController {
     /**
      * 预览文件（inline）：图片/PDF/文本等在浏览器中直接打开（类似 GitHub）
      */
-    @GetMapping("/api/files/{fileId}/preview")
+    @GetMapping("/files/{fileId}/preview")
     @PreAuthorize("isAuthenticated()")
     public void previewFile(
             @PathVariable Long fileId,
@@ -156,7 +156,7 @@ public class FileController {
      * @param fileId 文件ID
      * @return 删除结果
      */
-    @DeleteMapping("/api/files/{fileId}")
+    @DeleteMapping("/files/{fileId}")
     @PreAuthorize("isAuthenticated()")
     public Result<Void> deleteFile(@PathVariable Long fileId) {
         
@@ -275,7 +275,7 @@ public class FileController {
     /**
      * 获取某个文件的活动历史（类似 git log 的最小实现：上传/下载/删除等）
      */
-    @GetMapping("/api/files/{fileId}/activities")
+    @GetMapping("/files/{fileId}/activities")
     @PreAuthorize("isAuthenticated()")
     public Result<List<ActivityVO>> getFileActivities(
             @PathVariable Long fileId,

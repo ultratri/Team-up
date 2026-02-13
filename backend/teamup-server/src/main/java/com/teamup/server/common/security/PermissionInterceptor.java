@@ -32,14 +32,18 @@ public class PermissionInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
         // 1. 验证用户身份（JWT Token已在JwtAuthenticationFilter中验证）
-        if (!UserContext.isAuthenticated()) {
+        // 直接尝试获取用户ID，如果失败会抛出异常
+        Long userId;
+        try {
+            userId = UserContext.getCurrentUserId();
+        } catch (RuntimeException e) {
+            log.warn("获取当前用户ID失败: {}", e.getMessage());
             throw new BusinessException("未认证，请先登录");
         }
 
         // 2. 验证团队成员资格
         Long teamId = extractTeamId(request);
         if (teamId != null) {
-            Long userId = UserContext.getCurrentUserId();
             if (!isTeamMemberCached(teamId, userId)) {
                 log.warn("用户 {} 尝试访问非成员团队 {}", userId, teamId);
                 throw new BusinessException("无权限访问该团队资源");
