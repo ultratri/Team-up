@@ -49,5 +49,28 @@ public interface TeamMapper extends BaseMapper<Team> {
             "ORDER BY day ASC"
     )
     List<Map<String, Object>> aggregateDailyTeamCount(@Param("competitionId") Long competitionId, @Param("days") int days);
+    
+    /**
+     * 查询团队关联的比赛ID列表
+     */
+    @Select("SELECT competition_id FROM team_competitions WHERE team_id = #{teamId}")
+    List<Long> selectTeamCompetitionIds(@Param("teamId") Long teamId);
+    
+    /**
+     * 检查团队和比赛的关联是否存在
+     */
+    @Select("SELECT COUNT(*) > 0 FROM team_competitions WHERE team_id = #{teamId} AND competition_id = #{competitionId}")
+    boolean isTeamCompetitionExists(@Param("teamId") Long teamId, @Param("competitionId") Long competitionId);
+    
+    /**
+     * 添加团队和比赛的关联
+     */
+    @org.apache.ibatis.annotations.Insert("INSERT INTO team_competitions (team_id, competition_id, created_at) VALUES (#{teamId}, #{competitionId}, NOW())")
+    void insertTeamCompetition(@Param("teamId") Long teamId, @Param("competitionId") Long competitionId);
+    
+    /**
+     * 删除团队和比赛的关联
+     */
+    @org.apache.ibatis.annotations.Delete("DELETE FROM team_competitions WHERE team_id = #{teamId} AND competition_id = #{competitionId}")
+    void deleteTeamCompetition(@Param("teamId") Long teamId, @Param("competitionId") Long competitionId);
 }
-

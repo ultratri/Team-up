@@ -14,6 +14,11 @@ import java.util.List;
 public interface UserTagService {
     
     /**
+     * 获取用户的所有标签
+     */
+    List<UserTagVO> getUserAllTags(Long userId);
+    
+    /**
      * 获取用户的技能标签
      */
     List<UserSkillVO> getUserSkills(Long userId);

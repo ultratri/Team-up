@@ -88,7 +88,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, markRaw } from 'vue'
 import { ElMessage, genFileId } from 'element-plus'
 import type { UploadInstance, UploadProps, UploadRawFile } from 'element-plus'
 import { Download, Upload, UploadFilled, User, Document, Connection, Bell } from '@element-plus/icons-vue'
@@ -108,7 +108,7 @@ const exportTypes = ref([
     key: 'users',
     title: '用户数据',
     description: '导出所有用户的基本信息、角色、状态等',
-    icon: User,
+    icon: markRaw(User),
     color: '#409EFF',
     format: 'Excel',
     count: 0,
@@ -118,7 +118,7 @@ const exportTypes = ref([
     key: 'projects',
     title: '项目数据',
     description: '导出所有项目的详细信息、状态、创建时间等',
-    icon: Document,
+    icon: markRaw(Document),
     color: '#67C23A',
     format: 'Excel',
     count: 0,
@@ -128,7 +128,7 @@ const exportTypes = ref([
     key: 'teams',
     title: '团队数据',
     description: '导出所有团队的成员、项目关联等信息',
-    icon: Connection,
+    icon: markRaw(Connection),
     color: '#E6A23C',
     format: 'Excel',
     count: 0,
@@ -138,7 +138,7 @@ const exportTypes = ref([
     key: 'competitions',
     title: '比赛数据',
     description: '导出所有比赛的基本信息、参与团队等',
-    icon: Document,
+    icon: markRaw(Document),
     color: '#F56C6C',
     format: 'Excel',
     count: 0,
@@ -148,7 +148,7 @@ const exportTypes = ref([
     key: 'announcements',
     title: '公告数据',
     description: '导出所有系统公告和通知记录',
-    icon: Bell,
+    icon: markRaw(Bell),
     color: '#909399',
     format: 'CSV',
     count: 0,
@@ -158,7 +158,7 @@ const exportTypes = ref([
     key: 'audit-logs',
     title: '操作日志',
     description: '导出所有审计日志和操作记录',
-    icon: Document,
+    icon: markRaw(Document),
     color: '#606266',
     format: 'CSV',
     count: 0,
@@ -169,11 +169,13 @@ const exportTypes = ref([
 const loadCounts = async () => {
   try {
     const counts = await getDataCounts()
+    console.log('获取到的统计数据:', counts)
     exportTypes.value.forEach(type => {
       type.count = counts[type.key] || 0
     })
   } catch (error: any) {
     console.error('加载数据统计失败:', error)
+    ElMessage.error('加载数据统计失败')
   }
 }
 

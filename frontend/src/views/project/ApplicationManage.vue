@@ -242,7 +242,7 @@ onMounted(() => {
         <div class="card-header">
           <div class="applicant-info">
             <el-avatar v-if="viewMode === 'received'" :size="48" :src="app.applicantAvatar">
-              <el-icon><User /></el-icon>
+              {{ (app.applicantName || '申请人').charAt(0) }}
             </el-avatar>
             <div class="info-text">
               <h4 v-if="viewMode === 'received'">{{ app.applicantName || '匿名用户' }}</h4>

@@ -229,6 +229,7 @@ export interface TaskAssignee {
 export interface Task {
   id: number
   teamId: number
+  sprintId?: number | null
   title: string
   description: string
   status: 'TODO' | 'DOING' | 'REVIEW' | 'DONE'

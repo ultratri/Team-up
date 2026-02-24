@@ -15,10 +15,12 @@ import {
   MagicStick,
   CircleCloseFilled,
   Close,
+  Message,
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/store/auth'
 import { getProfile, updateProfile, getUserSkills, removeUserSkill } from '@/api/profile'
 import { request } from '@/utils/request'
+import { getUserAvailability, getUserAvailabilityById, updateUserAvailability, type UserAvailabilityRequest } from '@/api/user'
 import type { UserProfile, UserSkill } from '@/types/user'
 
 import ProfileHeader from '@/components/profile/ProfileHeader.vue'
@@ -62,6 +64,7 @@ const userProfile = reactive<Partial<UserProfile>>({
   department: '',
   major: '',
   grade: 1,
+  avatarUrl: '',
   wechat: '',
   qq: '',
   bio: '',
@@ -69,6 +72,19 @@ const userProfile = reactive<Partial<UserProfile>>({
 })
 
 const userSkills = ref<UserSkill[]>([])
+
+// 组队意向数据
+const userAvailability = reactive({
+  isAvailable: false,
+  intentions: [] as string[],
+  visibility: 'PUBLIC',
+  availableFrom: undefined as string | undefined,
+  availableUntil: undefined as string | undefined,
+  weeklyHours: undefined as number | undefined,
+  notes: ''
+})
+
+const dateRange = ref<[Date, Date] | null>(null)
 
 // 表单验证规则
 const profileRules = {
@@ -160,27 +176,48 @@ const loadProfile = async () => {
 
     const [deptMajorData] = await Promise.all([
       getDepartmentMajorPreset(),
-      loadAvailableTags(),
-      loadAvailableInterests(),
-      loadAvailablePersonalities(),
-      loadAvailableProjectTypes()
+      loadAvailableTags().catch(err => { console.warn('加载技能标签失败:', err); return []; }),
+      loadAvailableInterests().catch(err => { console.warn('加载兴趣标签失败:', err); return []; }),
+      loadAvailablePersonalities().catch(err => { console.warn('加载性格标签失败:', err); return []; }),
+      loadAvailableProjectTypes().catch(err => { console.warn('加载项目类型标签失败:', err); return []; })
     ])
     
     departmentMajorData.value = deptMajorData
 
-    const [profileRes, skillsRes, interestsRes, personalitiesRes, projectTypesRes] = await Promise.all([
+    const [profileRes, skillsRes, interestsRes, personalitiesRes, projectTypesRes, availabilityRes] = await Promise.all([
       getProfile(authStore.user.id),
       getUserSkills(authStore.user.id),
-      request.get(`/user-tags/${authStore.user.id}/tags/INTEREST`),
-      request.get(`/user-tags/${authStore.user.id}/tags/PERSONALITY`),
-      request.get(`/user-tags/${authStore.user.id}/tags/PROJECT_TYPE`)
+      request.get(`/user-tags/${authStore.user.id}/tags/INTEREST`).catch(() => []),
+      request.get(`/user-tags/${authStore.user.id}/tags/PERSONALITY`).catch(() => []),
+      request.get(`/user-tags/${authStore.user.id}/tags/PROJECT_TYPE`).catch(() => []),
+      getUserAvailabilityById(authStore.user.id).catch(() => null) // 如果失败返回null
     ])
     
-    if (profileRes?.data) Object.assign(userProfile, profileRes.data)
-    if (skillsRes?.data) userSkills.value = skillsRes.data
-    if (interestsRes?.data) userInterests.value = interestsRes.data
-    if (personalitiesRes?.data) userPersonalities.value = personalitiesRes.data
-    if (projectTypesRes?.data) userProjectTypes.value = projectTypesRes.data
+    // request拦截器已经解包了data，直接使用返回值
+    if (profileRes) Object.assign(userProfile, profileRes)
+    if (skillsRes) userSkills.value = skillsRes
+    if (interestsRes) userInterests.value = interestsRes
+    if (personalitiesRes) userPersonalities.value = personalitiesRes
+    if (projectTypesRes) userProjectTypes.value = projectTypesRes
+    
+    // 加载组队意向数据
+    if (availabilityRes) {
+      userAvailability.isAvailable = availabilityRes.isAvailable
+      userAvailability.intentions = availabilityRes.intentions || []
+      userAvailability.visibility = availabilityRes.visibility || 'PUBLIC'
+      userAvailability.weeklyHours = availabilityRes.weeklyHours
+      userAvailability.notes = availabilityRes.notes || ''
+      
+      // 处理日期范围
+      if (availabilityRes.availableFrom && availabilityRes.availableUntil) {
+        dateRange.value = [
+          new Date(availabilityRes.availableFrom),
+          new Date(availabilityRes.availableUntil)
+        ]
+        userAvailability.availableFrom = availabilityRes.availableFrom
+        userAvailability.availableUntil = availabilityRes.availableUntil
+      }
+    }
     
   } catch (error) {
     console.error('Failed to load profile:', error)
@@ -189,10 +226,11 @@ const loadProfile = async () => {
   }
 }
 
-const loadAvailableTags = () => request.get('/tags/skills').then(res => availableTags.value = res.data || [])
-const loadAvailableInterests = () => request.get('/tags/interests').then(res => availableInterests.value = res.data || [])
-const loadAvailablePersonalities = () => request.get('/tags/personalities').then(res => availablePersonalities.value = res.data || [])
-const loadAvailableProjectTypes = () => request.get('/tags/project-types').then(res => availableProjectTypes.value = res.data || [])
+// request拦截器已经解包了data，直接使用返回值
+const loadAvailableTags = () => request.get('/tags/skills').then(res => availableTags.value = res || [])
+const loadAvailableInterests = () => request.get('/tags/interests').then(res => availableInterests.value = res || [])
+const loadAvailablePersonalities = () => request.get('/tags/personalities').then(res => availablePersonalities.value = res || [])
+const loadAvailableProjectTypes = () => request.get('/tags/project-types').then(res => availableProjectTypes.value = res || [])
 
 const handleSave = async () => {
   if (!authStore.user?.id) return
@@ -209,11 +247,25 @@ const handleSave = async () => {
 
   loading.value = true
   try {
+    // 保存个人资料
     const updatedProfile = await updateProfile(authStore.user.id, userProfile)
-    if (updatedProfile.data) {
+    // request拦截器已经解包了data，直接使用返回值
+    if (updatedProfile) {
       // 更新 auth store 中的用户信息
-      authStore.setUser({ ...authStore.user, profile: updatedProfile.data })
+      authStore.setUser({ ...authStore.user, profile: updatedProfile })
     }
+    
+    // 保存组队意向
+    const availabilityData: UserAvailabilityRequest = {
+      isAvailable: userAvailability.isAvailable,
+      intentions: userAvailability.intentions,
+      visibility: userAvailability.visibility,
+      availableFrom: userAvailability.availableFrom,
+      availableUntil: userAvailability.availableUntil,
+      weeklyHours: userAvailability.weeklyHours,
+      notes: userAvailability.notes
+    }
+    await updateUserAvailability(availabilityData)
     
     // 刷新用户信息（确保 localStorage 同步）
     await authStore.refreshUserInfo()
@@ -300,6 +352,17 @@ const getCurrentAvailableTags = computed(() => {
   return availableProjectTypes.value
 })
 
+// 处理日期范围变化
+const handleDateRangeChange = (value: [Date, Date] | null) => {
+  if (value) {
+    userAvailability.availableFrom = value[0].toISOString().split('T')[0]
+    userAvailability.availableUntil = value[1].toISOString().split('T')[0]
+  } else {
+    userAvailability.availableFrom = undefined
+    userAvailability.availableUntil = undefined
+  }
+}
+
 onMounted(loadProfile)
 </script>
 
@@ -315,7 +378,7 @@ onMounted(loadProfile)
         <ProfileHeader 
           :user="{
             name: userProfile.realName || authStore.user?.username || 'User',
-            avatar: authStore.user?.avatar,
+            avatar: userProfile.avatarUrl || authStore.user?.profile?.avatarUrl,
             tagline: userProfile.bio,
             role: authStore.user?.roles?.[0]
           }" 
@@ -419,8 +482,29 @@ onMounted(loadProfile)
                 <div class="spec-item contact">
                   <span class="spec-icon"><ChatDotRound /></span>
                   <div class="spec-body">
-                    <label>联系方式 (WeChat)</label>
-                    <span class="value accent">{{ userProfile.wechat || 'Private' }}</span>
+                    <label>微信</label>
+                    <span class="value accent">{{ userProfile.wechat || '未填写' }}</span>
+                  </div>
+                </div>
+                <div class="spec-item contact">
+                  <span class="spec-icon"><ChatDotRound /></span>
+                  <div class="spec-body">
+                    <label>QQ</label>
+                    <span class="value accent">{{ userProfile.qq || '未填写' }}</span>
+                  </div>
+                </div>
+                <div class="spec-item contact" v-if="authStore.user?.email">
+                  <span class="spec-icon"><Message /></span>
+                  <div class="spec-body">
+                    <label>邮箱</label>
+                    <span class="value accent">{{ authStore.user.email }}</span>
+                  </div>
+                </div>
+                <div class="spec-item contact" v-if="authStore.user?.phone">
+                  <span class="spec-icon"><Message /></span>
+                  <div class="spec-body">
+                    <label>手机</label>
+                    <span class="value accent">{{ authStore.user.phone }}</span>
                   </div>
                 </div>
               </div>
@@ -458,6 +542,43 @@ onMounted(loadProfile)
                   {{ tag.tagName }}
                   <el-icon @click="handleRemoveTag(tag.id)" class="tag-del"><Close /></el-icon>
                 </span>
+              </div>
+            </GlassCard>
+
+            <!-- 组队意向卡片 -->
+            <GlassCard class="spec-card availability-panel animate-slide-up" style="animation-delay: 0.35s">
+              <div class="section-label">
+                <el-icon><Connection /></el-icon> 组队意向
+              </div>
+              
+              <div v-if="userAvailability.isAvailable && userAvailability.intentions.length > 0" class="availability-content">
+                <div class="intentions-display">
+                  <el-tag v-if="userAvailability.intentions.includes('JOIN_PROJECT')" type="primary" size="large">
+                    寻找项目
+                  </el-tag>
+                  <el-tag v-if="userAvailability.intentions.includes('FIND_TEAMMATES')" type="success" size="large">
+                    寻找队友
+                  </el-tag>
+                  <el-tag v-if="userAvailability.intentions.includes('FIND_MENTOR')" type="warning" size="large">
+                    寻找导师
+                  </el-tag>
+                  <el-tag v-if="userAvailability.intentions.includes('HELP_NEWBIE')" type="info" size="large">
+                    帮助新手
+                  </el-tag>
+                </div>
+                
+                <div v-if="userAvailability.weeklyHours" class="time-info">
+                  <el-icon class="time-icon"><Calendar /></el-icon>
+                  <span>每周可投入 {{ userAvailability.weeklyHours }} 小时</span>
+                </div>
+                
+                <div v-if="userAvailability.notes" class="notes-text">
+                  <strong>补充说明：</strong>{{ userAvailability.notes }}
+                </div>
+              </div>
+              
+              <div v-else class="no-availability">
+                <p>暂未设置组队意向</p>
               </div>
             </GlassCard>
           </div>
@@ -506,7 +627,7 @@ onMounted(loadProfile)
     <el-dialog v-model="isEditing" title="完善个人资料" width="620px" class="portfolio-dialog">
       <el-form :model="userProfile" :rules="profileRules" ref="profileFormRef" label-position="top" class="edit-form">
         <div class="form-hero">
-          <ImageUpload v-model="authStore.user.avatar" type="avatar" />
+          <ImageUpload v-model="userProfile.avatarUrl" type="avatar" />
           <div class="form-hero-info">
             <el-form-item label="真实姓名" prop="realName" required>
               <el-input v-model="userProfile.realName" placeholder="请输入你的真实姓名" />
@@ -547,6 +668,69 @@ onMounted(loadProfile)
         <el-form-item label="项目经历" prop="projectExperience" required>
           <el-input v-model="userProfile.projectExperience" type="textarea" :rows="4" placeholder="分享你参与过的项目经历..." />
         </el-form-item>
+
+        <!-- 组队意向设置 -->
+        <div class="form-section-divider"></div>
+        <div class="form-section-title">组队意向设置</div>
+        
+        <el-form-item label="我正在寻找项目/队伍">
+          <div class="switch-wrapper">
+            <el-switch v-model="userAvailability.isAvailable" />
+            <span class="hint">勾选后会出现在人才墙，让项目发起人找到你</span>
+          </div>
+        </el-form-item>
+
+        <template v-if="userAvailability.isAvailable">
+          <el-form-item label="组队意向">
+            <el-checkbox-group v-model="userAvailability.intentions">
+              <el-checkbox label="JOIN_PROJECT">寻找项目加入</el-checkbox>
+              <el-checkbox label="FIND_TEAMMATES">寻找队友组队</el-checkbox>
+              <el-checkbox label="FIND_MENTOR">寻找导师指导</el-checkbox>
+              <el-checkbox label="HELP_NEWBIE">愿意帮助新手</el-checkbox>
+            </el-checkbox-group>
+          </el-form-item>
+
+          <el-form-item label="可见范围">
+            <el-radio-group v-model="userAvailability.visibility">
+              <el-radio label="PUBLIC">所有人可见</el-radio>
+              <el-radio label="PROJECT_CREATOR">仅项目创建者可见</el-radio>
+              <el-radio label="MENTOR">仅导师可见</el-radio>
+            </el-radio-group>
+          </el-form-item>
+
+          <el-form-item label="可用时间段（可选）">
+            <el-date-picker
+              v-model="dateRange"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              @change="handleDateRangeChange"
+              style="width: 100%"
+            />
+          </el-form-item>
+
+          <el-form-item label="每周可投入时间（可选）">
+            <el-input-number 
+              v-model="userAvailability.weeklyHours" 
+              :min="0" 
+              :max="168"
+              placeholder="小时/周"
+            />
+            <span class="hint" style="margin-left: 10px">小时/周</span>
+          </el-form-item>
+
+          <el-form-item label="补充说明（可选）">
+            <el-input
+              v-model="userAvailability.notes"
+              type="textarea"
+              :rows="3"
+              placeholder="例如：希望参与Web开发项目，有React经验"
+              maxlength="200"
+              show-word-limit
+            />
+          </el-form-item>
+        </template>
       </el-form>
       <template #footer>
         <el-button @click="isEditing = false" round>取消</el-button>
@@ -906,6 +1090,54 @@ onMounted(loadProfile)
 
 .mt-20 { margin-top: 24px; }
 
+/* 组队意向卡片样式 */
+.availability-panel {
+  .availability-content {
+    padding-top: 10px;
+    
+    .intentions-display {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    
+    .time-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: var(--text-color-muted);
+      margin-bottom: 12px;
+      
+      .time-icon {
+        color: var(--accent-color);
+      }
+    }
+    
+    .notes-text {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text-color-muted);
+      padding: 12px;
+      background: rgba(var(--accent-color-rgb), 0.05);
+      border-radius: 8px;
+      
+      strong {
+        color: var(--text-color);
+        font-weight: 600;
+      }
+    }
+  }
+  
+  .no-availability {
+    padding: 20px 0;
+    text-align: center;
+    color: var(--text-color-muted);
+    font-size: 14px;
+  }
+}
+
 /* Animations */
 .animate-slide-up {
   opacity: 0;
@@ -931,6 +1163,37 @@ onMounted(loadProfile)
   border-radius: 20px;
 }
 .form-hero-info { flex: 1; }
+
+.form-section-divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 24px 0 20px;
+}
+
+.form-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent-color);
+  margin-bottom: 16px;
+}
+
+.switch-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  .hint {
+    font-size: 12px;
+    color: var(--text-color-muted);
+  }
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--text-color-muted);
+}
 
 :deep(.portfolio-dialog) {
   border-radius: 20px;

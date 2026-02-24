@@ -29,6 +29,11 @@ public class UserTagVO {
     private String tagName;
     
     /**
+     * 标签类型/分类（SKILL, INTEREST, PERSONALITY, PROJECT_TYPE等）
+     */
+    private String tagType;
+    
+    /**
      * 熟练度（仅技能标签）
      */
     private String proficiencyLevel;

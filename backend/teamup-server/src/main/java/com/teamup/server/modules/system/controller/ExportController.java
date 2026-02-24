@@ -55,9 +55,9 @@ public class ExportController {
      * 获取各类型数据的统计数量
      */
     @GetMapping("/export/counts")
-    public ResponseEntity<Map<String, Long>> getCounts() {
+    public Result<Map<String, Long>> getCounts() {
         Map<String, Long> counts = exportService.getDataCounts();
-        return ResponseEntity.ok(counts);
+        return Result.success(counts);
     }
 
     /**

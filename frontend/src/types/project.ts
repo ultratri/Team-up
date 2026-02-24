@@ -11,10 +11,12 @@ export type ProjectStatus =
 export interface Project {
   id: number
   creatorId: number
+  creatorName?: string  // 创建者用户名
   title: string
   projectType: ProjectType
   description?: string
   requirements?: string
+  requiredSkills?: string  // 技能需求
   teamSize: number
   currentMembers: number
   expectedDuration?: number
@@ -27,6 +29,9 @@ export interface Project {
   endDate?: string
   createdAt: string
   updatedAt: string
+  competitionId?: number  // 关联的比赛ID
+  teamId?: number  // 执行团队ID
+  teamMode?: string  // 团队模式
 }
 
 export interface ProjectSkillRequirement {

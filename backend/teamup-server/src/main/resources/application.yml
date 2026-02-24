@@ -13,6 +13,8 @@ file:
 spring:
   application:
     name: teamup-server
+  main:
+    allow-circular-references: true
   servlet:
     multipart:
       max-file-size: 100MB

@@ -91,9 +91,14 @@ public class JwtUtil {
      */
     public boolean validateToken(String token) {
         try {
-            parseToken(token);
-            return !isTokenExpired(token);
+            Claims claims = parseToken(token);
+            boolean expired = isTokenExpired(token);
+            if (expired) {
+                System.err.println("Token 已过期");
+            }
+            return !expired;
         } catch (Exception e) {
+            System.err.println("Token 验证失败: " + e.getClass().getSimpleName() + " - " + e.getMessage());
             return false;
         }
     }

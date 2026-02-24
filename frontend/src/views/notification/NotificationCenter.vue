@@ -84,7 +84,12 @@ const handleRead = async (notification: Notification) => {
         router.push(`/project/${notification.relatedId}`)
         break
       case 'TEAM':
-        router.push(`/team/${notification.relatedId}/overview`)
+        // 如果是导师申请通知，跳转到导师申请页面
+        if (notification.type && notification.type.includes('MENTOR_APPLICATION')) {
+          router.push('/mentor/applications')
+        } else {
+          router.push(`/team/${notification.relatedId}/overview`)
+        }
         break
       case 'TASK':
         // 任务通知跳转到任务看板
@@ -103,6 +108,9 @@ const handleRead = async (notification: Notification) => {
     if (competitionId) {
       router.push(`/competition/${competitionId}`)
     }
+  } else if (notification.type && notification.type.includes('MENTOR_APPLICATION')) {
+    // 导师申请通知，跳转到导师申请管理页面
+    router.push('/mentor/applications')
   }
 }
 

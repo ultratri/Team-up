@@ -255,7 +255,8 @@ const processRules: FormRules = {
 const fetchReportList = async () => {
   loading.value = true
   try {
-    const { data } = await request.get('/admin/reports', {
+    // 注意：request 已经解包了 Result，直接返回 data 字段
+    const data = await request.get('/admin/reports', {
       params: {
         page: pagination.page,
         size: pagination.size,
@@ -263,8 +264,8 @@ const fetchReportList = async () => {
         targetType: filterForm.targetType || undefined
       }
     })
-    reportList.value = data.records
-    pagination.total = data.total
+    reportList.value = data.records || []
+    pagination.total = data.total || 0
   } catch (error) {
     ElMessage.error('获取举报列表失败')
   } finally {
@@ -274,17 +275,29 @@ const fetchReportList = async () => {
 
 const fetchStatistics = async () => {
   try {
-    const { data } = await request.get('/admin/reports/statistics')
-    const statusMap = {
+    // 注意：request 已经解包了 Result，直接返回 data 字段
+    const data = await request.get('/admin/reports/statistics')
+    
+    if (!data || !Array.isArray(data)) {
+      console.warn('统计数据格式不正确:', data)
+      return
+    }
+    
+    // 重置统计数据
+    statistics.value.forEach(stat => stat.value = 0)
+    
+    const statusMap: Record<string, number> = {
       PENDING: 0,
       REVIEWING: 1,
       RESOLVED: 2,
       REJECTED: 3
     }
+    
+    // 按状态汇总（因为后端按 target_type 和 status 分组）
     data.forEach((item: any) => {
       const index = statusMap[item.status]
       if (index !== undefined) {
-        statistics.value[index].value = item.count
+        statistics.value[index].value += item.count || 0
       }
     })
   } catch (error) {
@@ -313,7 +326,8 @@ const handlePageChange = () => {
 
 const handleView = async (row: any) => {
   try {
-    const { data } = await request.get(`/admin/reports/${row.id}`)
+    // 注意：request 已经解包了 Result，直接返回 data 字段
+    const data = await request.get(`/admin/reports/${row.id}`)
     currentReport.value = data
     detailDialogVisible.value = true
   } catch (error) {

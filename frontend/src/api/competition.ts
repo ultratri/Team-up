@@ -54,38 +54,49 @@ export interface CompetitionLeaderboardEntry {
  * 获取比赛列表
  */
 export async function getCompetitions(params?: CompetitionListQuery): Promise<CompetitionListResponse> {
-  const res = await request.get<ApiResult<PageResult<Competition>>>('/competitions', { params })
-  if (res.code === 200 && res.data) {
-    // 修复：如果 total 为 0 但有 records，使用 records 长度
-    const total = res.data.total || res.data.records?.length || 0
-    return {
-      records: res.data.records || [],
-      total: total,
-      page: res.data.page || params?.page || 1,
-      size: res.data.size || params?.size || 10
+  try {
+    const res = await request.get<PageResult<Competition>>('/competitions', { params })
+    // request拦截器已经解包了数据
+    if (res && typeof res === 'object') {
+      const total = (res as any).total || (res as any).records?.length || 0
+      return {
+        records: (res as any).records || [],
+        total: total,
+        page: (res as any).page || params?.page || 1,
+        size: (res as any).size || params?.size || 10
+      }
     }
+    return { records: [], total: 0, page: 1, size: 10 }
+  } catch (error) {
+    console.error('Failed to get competitions:', error)
+    return { records: [], total: 0, page: 1, size: 10 }
   }
-  return { records: [], total: 0, page: 1, size: 10 }
 }
 
 /**
  * 获取比赛详情
  */
 export async function getCompetitionDetail(id: number): Promise<Competition | null> {
-  const res = await request.get<ApiResult<Competition>>(`/competitions/${id}`)
-  if (res.code === 200 && res.data) {
-    // 解析 attachments JSON 字符串
-    if (res.data.attachments && typeof res.data.attachments === 'string') {
-      try {
-        res.data.attachments = JSON.parse(res.data.attachments)
-      } catch (e) {
-        console.warn('Failed to parse competition attachments:', e)
-        res.data.attachments = []
+  try {
+    const res = await request.get<Competition>(`/competitions/${id}`)
+    // request拦截器已经解包了res.data，所以这里直接使用res
+    if (res) {
+      // 解析 attachments JSON 字符串
+      if (res.attachments && typeof res.attachments === 'string') {
+        try {
+          res.attachments = JSON.parse(res.attachments)
+        } catch (e) {
+          console.warn('Failed to parse competition attachments:', e)
+          res.attachments = []
+        }
       }
+      return res
     }
-    return res.data
+    return null
+  } catch (error) {
+    console.error('Failed to get competition detail:', error)
+    return null
   }
-  return null
 }
 
 /**
@@ -137,17 +148,22 @@ export async function getCompetitionTeams(
   competitionId: number,
   params?: { page?: number; size?: number }
 ): Promise<TeamListResponse> {
-  const res = await request.get<ApiResult<PageResult<Team>>>(`/competitions/${competitionId}/teams`, { params })
-  if (res.code === 200 && res.data) {
-    // MyBatis-Plus Page 返回的字段名是 records, total, current, size
-    return {
-      records: (res.data as any).records || res.data.records || [],
-      total: (res.data as any).total || res.data.total || 0,
-      page: (res.data as any).current || params?.page || 1,
-      size: (res.data as any).size || params?.size || 10
+  try {
+    const res = await request.get<PageResult<Team>>(`/competitions/${competitionId}/teams`, { params })
+    // request拦截器已经解包了数据
+    if (res && typeof res === 'object') {
+      return {
+        records: (res as any).records || [],
+        total: (res as any).total || 0,
+        page: (res as any).current || params?.page || 1,
+        size: (res as any).size || params?.size || 10
+      }
     }
+    return { records: [], total: 0, page: 1, size: 10 }
+  } catch (error) {
+    console.error('Failed to get competition teams:', error)
+    return { records: [], total: 0, page: 1, size: 10 }
   }
-  return { records: [], total: 0, page: 1, size: 10 }
 }
 
 /**
@@ -172,14 +188,16 @@ export async function applyJoinCompetitionTeam(
   teamId: number,
   reason?: string
 ): Promise<any> {
-  const res = await request.post<ApiResult<any>>(
-    `/competitions/${competitionId}/teams/${teamId}/join`,
-    { reason }
-  )
-  if (res.code === 200) {
-    return res.data
+  try {
+    const res = await request.post<any>(
+      `/competitions/${competitionId}/teams/${teamId}/join`,
+      { reason }
+    )
+    // request拦截器已经解包了数据
+    return res
+  } catch (error: any) {
+    throw new Error(error.message || '申请加入失败')
   }
-  throw new Error(res.message || '申请加入失败')
 }
 
 /**
@@ -189,20 +207,22 @@ export async function createMentorApplication(
   teamId: number,
   data: Omit<MentorApplicationCreateRequest, 'teamId'>
 ): Promise<TeamMentorApplication> {
-  const res = await request.post<ApiResult<TeamMentorApplication>>(
-    `/teams/${teamId}/mentor-applications`,
-    null,
-    {
-      params: {
-        mentorId: data.mentorId,
-        reason: data.reason
+  try {
+    const res = await request.post<TeamMentorApplication>(
+      `/teams/${teamId}/mentor-applications`,
+      null,
+      {
+        params: {
+          mentorId: data.mentorId,
+          reason: data.reason
+        }
       }
-    }
-  )
-  if (res.code === 200 && res.data) {
-    return res.data
+    )
+    // request拦截器已经解包了数据
+    return res
+  } catch (error: any) {
+    throw new Error(error.message || '申请导师失败')
   }
-  throw new Error(res.message || '申请导师失败')
 }
 
 /**

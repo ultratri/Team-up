@@ -41,34 +41,51 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // 从请求头获取Token
             String token = getTokenFromRequest(request);
             
-            if (StringUtils.hasText(token) && jwtUtil.validateToken(token)) {
-                // 从Token中获取用户名
-                String username = jwtUtil.getUsernameFromToken(token);
+            System.out.println("=== JWT Filter Debug ===");
+            System.out.println("Request URI: " + request.getRequestURI());
+            System.out.println("Token present: " + (token != null));
+            
+            if (StringUtils.hasText(token)) {
+                System.out.println("Token: " + token.substring(0, Math.min(20, token.length())) + "...");
+                boolean isValid = jwtUtil.validateToken(token);
+                System.out.println("Token valid: " + isValid);
                 
-                // 尝试从缓存获取用户详情，减少数据库查询
-                UserDetails userDetails = getUserDetailsFromCache(username);
-                if (userDetails == null) {
-                    userDetails = userDetailsService.loadUserByUsername(username);
-                    cacheUserDetails(username, userDetails);
+                if (isValid) {
+                    // 从Token中获取用户名
+                    String username = jwtUtil.getUsernameFromToken(token);
+                    System.out.println("Username from token: " + username);
+                    
+                    // 尝试从缓存获取用户详情，减少数据库查询
+                    UserDetails userDetails = getUserDetailsFromCache(username);
+                    if (userDetails == null) {
+                        userDetails = userDetailsService.loadUserByUsername(username);
+                        cacheUserDetails(username, userDetails);
+                    }
+                    
+                    System.out.println("UserDetails loaded: " + (userDetails != null));
+                    
+                    // 创建认证对象
+                    UsernamePasswordAuthenticationToken authentication =
+                            new UsernamePasswordAuthenticationToken(
+                                    userDetails,
+                                    null,
+                                    userDetails.getAuthorities()
+                            );
+                    
+                    authentication.setDetails(
+                            new WebAuthenticationDetailsSource().buildDetails(request)
+                    );
+                    
+                    // 设置到SecurityContext
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                    System.out.println("Authentication set successfully");
                 }
-                
-                // 创建认证对象
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(
-                                userDetails,
-                                null,
-                                userDetails.getAuthorities()
-                        );
-                
-                authentication.setDetails(
-                        new WebAuthenticationDetailsSource().buildDetails(request)
-                );
-                
-                // 设置到SecurityContext
-                SecurityContextHolder.getContext().setAuthentication(authentication);
             }
+            System.out.println("======================");
         } catch (Exception e) {
             logger.error("无法设置用户认证: " + e.getMessage(), e);
+            System.err.println("JWT Filter Error: " + e.getMessage());
+            e.printStackTrace();
         }
         
         filterChain.doFilter(request, response);

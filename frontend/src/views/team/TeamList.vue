@@ -42,6 +42,7 @@
       >
         <el-option label="全部" value="" />
         <el-option label="活跃" value="ACTIVE" />
+        <el-option label="已解散" value="DISSOLVED" />
         <el-option label="已归档" value="ARCHIVED" />
       </el-select>
       
@@ -132,7 +133,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { Plus, Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useTeamStore } from '@/store/team'
@@ -147,6 +148,7 @@ import type { TeamStatus, TeamType } from '@/types/team'
 const teamStore = useTeamStore()
 const authStore = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 
 // State
 const searchKeyword = ref('')
@@ -194,28 +196,20 @@ const filteredTeams = computed(() => {
  * 加载团队列表
  */
 const loadTeams = async () => {
-  console.log('🔍 loadTeams 开始')
-  
   if (!authStore.user) {
-    console.error('❌ authStore.user 为空，无法加载团队列表')
     ElMessage.error('请先登录')
     router.push({ name: 'Login' })
     return
   }
 
-  console.log('✅ 用户已登录，user.id:', authStore.user.id)
-
   try {
-    console.log('📡 调用 teamStore.fetchUserTeams...')
     await teamStore.fetchUserTeams({
       userId: authStore.user.id,
       keyword: debouncedKeyword.value || undefined,
       status: statusFilter.value || undefined
     })
-    console.log('✅ fetchUserTeams 完成，teams:', teamStore.teams)
-    console.log('  teams.length:', teamStore.teams.length)
   } catch (err: any) {
-    console.error('❌ Failed to load teams:', err)
+    console.error('Failed to load teams:', err)
     ElMessage.error(err.message || '加载团队列表失败')
   }
 }
@@ -256,9 +250,14 @@ const handleCreateSuccess = (teamId: number) => {
 }
 
 /**
- * 处理团队卡片点击 - 优化：预加载团队数据
+ * 处理团队卡片点击 - 优化：预加载团队数据并记忆选择
  */
 const handleTeamClick = async (teamId: number) => {
+  // 保存最后访问的团队ID到 localStorage（与用户ID关联）
+  if (authStore.user?.id) {
+    localStorage.setItem(`lastVisitedTeamId_${authStore.user.id}`, String(teamId))
+  }
+  
   // 立即跳转，不等待数据加载
   router.push({
     name: 'TeamOverview',
@@ -274,11 +273,35 @@ const handleTeamClick = async (teamId: number) => {
 }
 
 // Lifecycle
-onMounted(() => {
-  console.log('🔍 TeamList onMounted - 开始加载团队列表')
-  console.log('  authStore.user:', authStore.user)
-  console.log('  authStore.user.id:', authStore.user?.id)
-  loadTeams()
+onMounted(async () => {
+  // 清理旧的全局键（安全修复）
+  if (localStorage.getItem('lastVisitedTeamId')) {
+    localStorage.removeItem('lastVisitedTeamId')
+  }
+  
+  // 先加载团队列表
+  await loadTeams()
+  
+  // 检查是否应该自动跳转到上次访问的团队
+  if (authStore.user?.id) {
+    const lastTeamId = localStorage.getItem(`lastVisitedTeamId_${authStore.user.id}`)
+    const fromTeamDetail = document.referrer.includes('/team/') && document.referrer.includes('/overview')
+    
+    if (lastTeamId && route.name === 'TeamList' && !route.query.noRedirect && !fromTeamDetail) {
+      // 验证团队是否存在且用户有权限访问
+      const teamExists = teams.value.some(t => t.id === Number(lastTeamId))
+      
+      if (teamExists) {
+        router.push({
+          name: 'TeamOverview',
+          params: { id: lastTeamId }
+        })
+      } else {
+        // 如果团队不存在或用户无权访问，清除记录
+        localStorage.removeItem(`lastVisitedTeamId_${authStore.user.id}`)
+      }
+    }
+  }
 })
 </script>
 

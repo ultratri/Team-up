@@ -85,7 +85,7 @@
       <TransitionGroup v-else name="ts-grid" tag="div" class="ts-grid">
         <TalentCard
           v-for="talent in talents"
-          :key="talent.id"
+          :key="talent.userId"
           :talent="talent"
           @view="handleViewTalentDetail"
         />
@@ -159,249 +159,13 @@
     </div>
 
     <!-- 导师详情对话框 -->
-    <el-dialog
+    <MentorDetailDialog
       v-model="showDetailDialog"
-      width="800px"
-      :show-close="false"
-      destroy-on-close
-      class="mentor-detail-dialog"
-    >
-      <div v-if="selectedMentor" class="mentor-detail">
-        <!-- 自定义关闭按钮 -->
-        <button class="close-btn" @click="showDetailDialog = false" aria-label="关闭">
-          <el-icon><Close /></el-icon>
-        </button>
+      :mentor-detail="selectedMentor"
+      close-button-text="返回列表"
+    />
 
-        <!-- 顶部卡片 -->
-        <div class="mentor-card-top">
-          <div class="mentor-avatar-section">
-            <el-avatar :size="100" :src="selectedMentor.avatarUrl" class="mentor-avatar-large">
-              {{ selectedMentor.realName?.charAt(0) }}
-            </el-avatar>
-            <div class="mentor-rating-badge">
-              <el-icon><Star /></el-icon>
-              <span>{{ selectedMentor.rating?.toFixed(1) || '5.0' }}</span>
-            </div>
-          </div>
-          
-          <div class="mentor-info-section">
-            <h2 class="mentor-name-large">{{ selectedMentor.realName }}</h2>
-            <p class="mentor-dept-large">{{ selectedMentor.department }} · {{ selectedMentor.major }}</p>
-          </div>
-        </div>
-
-        <!-- 内容区域 -->
-        <div class="mentor-content-area">
-          <!-- 个人简介 -->
-          <div class="content-block">
-            <div class="block-header">
-              <div class="block-title">
-                <el-icon class="block-icon"><User /></el-icon>
-                <span>个人简介</span>
-              </div>
-            </div>
-            <div class="block-content">
-              <p class="text-content">{{ selectedMentor.bio || '这位导师还没有填写个人简介。' }}</p>
-            </div>
-          </div>
-
-          <!-- 技能标签 -->
-          <div class="content-block">
-            <div class="block-header">
-              <div class="block-title">
-                <el-icon class="block-icon"><MagicStick /></el-icon>
-                <span>技能专长</span>
-              </div>
-              <span class="skill-count" v-if="!loadingSkills && mentorSkills.length > 0">
-                {{ mentorSkills.length }} 项技能
-              </span>
-            </div>
-            <div class="block-content">
-              <!-- 加载中 -->
-              <div v-if="loadingSkills" class="skills-loading">
-                <el-icon class="is-loading"><Loading /></el-icon>
-                <span>加载技能标签中...</span>
-              </div>
-              
-              <!-- 技能列表 -->
-              <div v-else-if="mentorSkills.length > 0" class="skills-showcase">
-                <div 
-                  v-for="(skill, index) in mentorSkills" 
-                  :key="index" 
-                  class="skill-chip"
-                  :data-level="skill.proficiencyLevel"
-                  :style="{ animationDelay: `${index * 0.05}s` }"
-                >
-                  <i class="level-dot"></i>
-                  <span class="skill-chip-text">{{ skill.skillName }}</span>
-                </div>
-              </div>
-              
-              <!-- 无技能 -->
-              <div v-else class="no-skills">
-                <el-icon><InfoFilled /></el-icon>
-                <span>该导师还未添加技能标签</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- 兴趣领域 -->
-          <div class="content-block">
-            <div class="block-header">
-              <div class="block-title">
-                <el-icon class="block-icon"><Connection /></el-icon>
-                <span>兴趣领域</span>
-              </div>
-              <span class="skill-count" v-if="!loadingOtherTags && mentorInterests.length > 0">
-                {{ mentorInterests.length }} 个兴趣
-              </span>
-            </div>
-            <div class="block-content">
-              <!-- 加载中 -->
-              <div v-if="loadingOtherTags" class="skills-loading">
-                <el-icon class="is-loading"><Loading /></el-icon>
-                <span>加载标签中...</span>
-              </div>
-              
-              <!-- 兴趣列表 -->
-              <div v-else-if="mentorInterests.length > 0" class="skills-showcase">
-                <div 
-                  v-for="(tag, index) in mentorInterests" 
-                  :key="index" 
-                  class="skill-chip interest-chip"
-                  :style="{ animationDelay: `${index * 0.05}s` }"
-                >
-                  <span class="skill-chip-text">{{ tag.tagName }}</span>
-                </div>
-              </div>
-              
-              <!-- 无兴趣 -->
-              <div v-else class="no-skills">
-                <el-icon><InfoFilled /></el-icon>
-                <span>该导师还未添加兴趣标签</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- 个人特质 -->
-          <div class="content-block">
-            <div class="block-header">
-              <div class="block-title">
-                <el-icon class="block-icon"><MagicStick /></el-icon>
-                <span>个人特质</span>
-              </div>
-              <span class="skill-count" v-if="!loadingOtherTags && mentorPersonalities.length > 0">
-                {{ mentorPersonalities.length }} 项特质
-              </span>
-            </div>
-            <div class="block-content">
-              <!-- 加载中 -->
-              <div v-if="loadingOtherTags" class="skills-loading">
-                <el-icon class="is-loading"><Loading /></el-icon>
-                <span>加载标签中...</span>
-              </div>
-              
-              <!-- 特质列表 -->
-              <div v-else-if="mentorPersonalities.length > 0" class="skills-showcase">
-                <div 
-                  v-for="(tag, index) in mentorPersonalities" 
-                  :key="index" 
-                  class="skill-chip personality-chip"
-                  :style="{ animationDelay: `${index * 0.05}s` }"
-                >
-                  <span class="skill-chip-text">{{ tag.tagName }}</span>
-                </div>
-              </div>
-              
-              <!-- 无特质 -->
-              <div v-else class="no-skills">
-                <el-icon><InfoFilled /></el-icon>
-                <span>该导师还未添加个人特质标签</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- 偏好类型 -->
-          <div class="content-block">
-            <div class="block-header">
-              <div class="block-title">
-                <el-icon class="block-icon"><Star /></el-icon>
-                <span>偏好类型</span>
-              </div>
-              <span class="skill-count" v-if="!loadingOtherTags && mentorProjectTypes.length > 0">
-                {{ mentorProjectTypes.length }} 种类型
-              </span>
-            </div>
-            <div class="block-content">
-              <!-- 加载中 -->
-              <div v-if="loadingOtherTags" class="skills-loading">
-                <el-icon class="is-loading"><Loading /></el-icon>
-                <span>加载标签中...</span>
-              </div>
-              
-              <!-- 类型列表 -->
-              <div v-else-if="mentorProjectTypes.length > 0" class="skills-showcase">
-                <div 
-                  v-for="(tag, index) in mentorProjectTypes" 
-                  :key="index" 
-                  class="skill-chip type-chip"
-                  :style="{ animationDelay: `${index * 0.05}s` }"
-                >
-                  <span class="skill-chip-text">{{ tag.tagName }}</span>
-                </div>
-              </div>
-              
-              <!-- 无类型 -->
-              <div v-else class="no-skills">
-                <el-icon><InfoFilled /></el-icon>
-                <span>该导师还未添加偏好类型标签</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- 项目经验 -->
-          <div class="content-block">
-            <div class="block-header">
-              <div class="block-title">
-                <el-icon class="block-icon"><Trophy /></el-icon>
-                <span>项目经验</span>
-              </div>
-            </div>
-            <div class="block-content">
-              <div class="markdown-wrapper">
-                <MarkdownViewer
-                  :content="selectedMentor.projectExperience || '暂无项目经验展示'"
-                />
-              </div>
-            </div>
-          </div>
-
-          <!-- 指导成就 -->
-          <div class="content-block" v-if="selectedMentor.guidanceExperience">
-            <div class="block-header">
-              <div class="block-title">
-                <el-icon class="block-icon"><Medal /></el-icon>
-                <span>指导成就</span>
-              </div>
-            </div>
-            <div class="block-content">
-              <div class="markdown-wrapper">
-                <MarkdownViewer
-                  :content="selectedMentor.guidanceExperience"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 底部操作 -->
-        <div class="mentor-actions">
-          <el-button size="large" @click="showDetailDialog = false">
-            返回列表
-          </el-button>
-        </div>
-      </div>
-    </el-dialog>
+    <!-- 人才详情对话框 -->
 
     <!-- 人才详情对话框 -->
     <el-dialog
@@ -421,7 +185,7 @@
         <div class="mentor-card-top">
           <div class="mentor-avatar-section">
             <el-avatar :size="100" :src="selectedTalent.avatarUrl" class="mentor-avatar-large">
-              {{ selectedTalent.realName?.charAt(0) }}
+              {{ (selectedTalent.realName || selectedTalent.username || '用户').charAt(0) }}
             </el-avatar>
             <div class="mentor-rating-badge" style="background: var(--accent-color);">
               <el-icon><Medal /></el-icon>
@@ -717,12 +481,13 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, watch, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Search, Close, Star, User, MagicStick, Trophy, Medal, Loading, InfoFilled, Connection, Clock, Phone } from '@element-plus/icons-vue'
+import { Search, User, MagicStick, Trophy, Medal, Loading, InfoFilled, Connection, Clock, Phone, Close, Star } from '@element-plus/icons-vue'
 import { getMentorPlaza, type MentorCard as MentorCardType } from '@/api/mentor'
 import { getUserSkills } from '@/api/profile'
 import { getTalentList, type TalentVO } from '@/api/user'
 import { request } from '@/utils/request'
 import type { UserSkill } from '@/types/user'
+import MentorDetailDialog from '@/components/mentor/MentorDetailDialog.vue'
 import { useDebounce } from '@/composables/useLazyLoad'
 import MentorCard from '@/components/mentor/MentorCard.vue'
 import TalentCard from '@/components/talent/TalentCard.vue'
@@ -757,83 +522,103 @@ const talentLoading = ref(false)
 
 const showDetailDialog = ref(false)
 const selectedMentor = ref<MentorCardType | null>(null)
-const mentorSkills = ref<UserSkill[]>([])
-const loadingSkills = ref(false)
 
-// 导师的其他标签
-const mentorInterests = ref<any[]>([])
-const mentorPersonalities = ref<any[]>([])
-const mentorProjectTypes = ref<any[]>([])
-const loadingOtherTags = ref(false)
-
-// 人才详情相关状态
+// 人才详情对话框
 const showTalentDetailDialog = ref(false)
 const selectedTalent = ref<TalentVO | null>(null)
+const loadingTalentSkills = ref(false)
+const loadingTalentOtherTags = ref(false)
 const talentSkills = ref<UserSkill[]>([])
 const talentInterests = ref<any[]>([])
 const talentPersonalities = ref<any[]>([])
 const talentProjectTypes = ref<any[]>([])
-const loadingTalentSkills = ref(false)
-const loadingTalentOtherTags = ref(false)
 
-// 权限控制：判断当前用户是否可以查看联系方式
-// 注意：后端已经根据可见范围设置过滤了联系方式字段
-// 前端只需要检查这些字段是否存在即可
-const canViewContactInfo = computed(() => {
-  if (!selectedTalent.value) return false
+// 是否可以查看联系方式（简单实现：总是可以查看）
+const canViewContactInfo = ref(true)
+
+// 查看导师详情
+const handleViewDetail = async (mentor: MentorCardType) => {
+  selectedMentor.value = mentor
+  showDetailDialog.value = true
+}
+
+// 查看人才详情
+const handleViewTalentDetail = async (talent: TalentVO) => {
+  selectedTalent.value = talent
+  showTalentDetailDialog.value = true
   
-  // 如果任何一个联系方式字段存在，就显示联系方式区域
-  return !!(
-    selectedTalent.value.wechat ||
-    selectedTalent.value.qq ||
-    selectedTalent.value.email ||
-    selectedTalent.value.phone
-  )
-})
+  // 加载人才的详细信息
+  loadingTalentSkills.value = true
+  loadingTalentOtherTags.value = true
+  try {
+    const [skills, interestsRes, personalitiesRes, projectTypesRes] = await Promise.all([
+      getUserSkills(talent.userId),
+      request.get(`/user-tags/${talent.userId}/tags/INTEREST`).catch(() => []),
+      request.get(`/user-tags/${talent.userId}/tags/PERSONALITY`).catch(() => []),
+      request.get(`/user-tags/${talent.userId}/tags/PROJECT_TYPE`).catch(() => [])
+    ])
+    
+    talentSkills.value = skills || []
+    // request.get 返回的直接就是数据数组
+    talentInterests.value = Array.isArray(interestsRes) ? interestsRes : (interestsRes.data || [])
+    talentPersonalities.value = Array.isArray(personalitiesRes) ? personalitiesRes : (personalitiesRes.data || [])
+    talentProjectTypes.value = Array.isArray(projectTypesRes) ? projectTypesRes : (projectTypesRes.data || [])
+  } catch (error) {
+    console.error('加载人才详情失败:', error)
+  } finally {
+    loadingTalentSkills.value = false
+    loadingTalentOtherTags.value = false
+  }
+}
 
 // 加载人才列表
 const loadTalents = async () => {
   talentLoading.value = true
   try {
-    const res = await getTalentList({
+    const params = {
       page: pagination.page,
       size: pagination.size,
       department: filters.department || undefined,
       keyword: filters.keyword || undefined,
       intention: filters.intention || undefined
-    })
+    }
     
-    talents.value = res.records
-    talentTotal.value = res.total
-  } catch (error: any) {
-    ElMessage.error(error.message || '加载人才列表失败')
-    talents.value = []
-    talentTotal.value = 0
+    const res = await getTalentList(params)
+    // 过滤掉没有 userId 的数据，确保 TransitionGroup 的 key 有效
+    talents.value = (res.records || []).filter(talent => talent && talent.userId)
+    talentTotal.value = res.total || 0
+  } catch (error) {
+    console.error('加载人才列表失败:', error)
+    ElMessage.error('加载人才列表失败')
   } finally {
     talentLoading.value = false
   }
 }
 
+// 加载导师列表
 const loadMentors = async () => {
   loading.value = true
   try {
-    const res = await getMentorPlaza({
+    const params = {
       page: pagination.page,
       size: pagination.size,
       department: filters.department || undefined,
       keyword: filters.keyword || undefined
-    })
+    }
     
-    mentors.value = res.records
-    total.value = res.total
-  } catch (error: any) {
-    ElMessage.error(error.message || '加载导师列表失败')
+    const res = await getMentorPlaza(params)
+    // 过滤掉没有 id 的数据，确保 TransitionGroup 的 key 有效
+    mentors.value = (res.records || []).filter(mentor => mentor && mentor.id)
+    total.value = res.total || 0
+  } catch (error) {
+    console.error('加载导师列表失败:', error)
+    ElMessage.error('加载导师列表失败')
   } finally {
     loading.value = false
   }
 }
 
-// 搜索处理（使用防抖优化）
+// 搜索处理（防抖）
 const handleSearch = useDebounce(() => {
   pagination.page = 1
   if (activeTab.value === 'talents') {
@@ -848,88 +633,12 @@ const resetFilters = () => {
   filters.department = ''
   filters.keyword = ''
   filters.intention = ''
-  handleSearch()
-}
-
-// 查看人才详情
-const handleViewTalentDetail = async (talent: TalentVO) => {
-  selectedTalent.value = talent
-  showTalentDetailDialog.value = true
+  pagination.page = 1
   
-  // 获取人才的技能标签
-  talentSkills.value = []
-  loadingTalentSkills.value = true
-  try {
-    const res = await getUserSkills(talent.id)
-    if (res) {
-      talentSkills.value = res
-    }
-  } catch (error) {
-    console.error('获取人才技能失败:', error)
-  } finally {
-    loadingTalentSkills.value = false
-  }
-
-  // 获取人才的其他标签
-  talentInterests.value = []
-  talentPersonalities.value = []
-  talentProjectTypes.value = []
-  loadingTalentOtherTags.value = true
-  try {
-    const [interestsRes, personalitiesRes, projectTypesRes] = await Promise.all([
-      request.get(`/user-tags/${talent.id}/tags/INTEREST`),
-      request.get(`/user-tags/${talent.id}/tags/PERSONALITY`),
-      request.get(`/user-tags/${talent.id}/tags/PROJECT_TYPE`)
-    ])
-    
-    if (interestsRes?.data) talentInterests.value = interestsRes.data
-    if (personalitiesRes?.data) talentPersonalities.value = personalitiesRes.data
-    if (projectTypesRes?.data) talentProjectTypes.value = projectTypesRes.data
-  } catch (error) {
-    console.error('获取人才其他标签失败:', error)
-  } finally {
-    loadingTalentOtherTags.value = false
-  }
-}
-
-// 查看导师详情
-const handleViewDetail = async (mentor: MentorCardType) => {
-  selectedMentor.value = mentor
-  showDetailDialog.value = true
-  
-  // 获取导师的真实技能标签
-  mentorSkills.value = []
-  loadingSkills.value = true
-  try {
-    const res = await getUserSkills(mentor.id)
-    if (res) {
-      mentorSkills.value = res
-    }
-  } catch (error) {
-    console.error('获取导师技能失败:', error)
-  } finally {
-    loadingSkills.value = false
-  }
-
-  // 获取导师的其他标签（兴趣、性格、项目类型）
-  mentorInterests.value = []
-  mentorPersonalities.value = []
-  mentorProjectTypes.value = []
-  loadingOtherTags.value = true
-  try {
-    const [interestsRes, personalitiesRes, projectTypesRes] = await Promise.all([
-      request.get(`/user-tags/${mentor.id}/tags/INTEREST`),
-      request.get(`/user-tags/${mentor.id}/tags/PERSONALITY`),
-      request.get(`/user-tags/${mentor.id}/tags/PROJECT_TYPE`)
-    ])
-    
-    if (interestsRes?.data) mentorInterests.value = interestsRes.data
-    if (personalitiesRes?.data) mentorPersonalities.value = personalitiesRes.data
-    if (projectTypesRes?.data) mentorProjectTypes.value = projectTypesRes.data
-  } catch (error) {
-    console.error('获取导师其他标签失败:', error)
-  } finally {
-    loadingOtherTags.value = false
+  if (activeTab.value === 'talents') {
+    loadTalents()
+  } else {
+    loadMentors()
   }
 }
 
@@ -1370,12 +1079,14 @@ onMounted(() => {
       font-weight: 600;
       color: var(--text-color);
       margin-right: 8px;
+      flex-shrink: 0;
     }
     
     .contact-value {
       color: var(--text-color-muted);
       flex: 1;
-      word-break: break-all;
+      word-break: keep-all;
+      overflow-wrap: break-word;
     }
   }
 }

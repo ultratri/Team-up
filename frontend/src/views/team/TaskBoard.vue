@@ -9,6 +9,7 @@ import TaskFilters from '@/components/team/TaskFilters.vue'
 import TaskStats from '@/components/team/TaskStats.vue'
 import GlassCard from '@/components/common/GlassCard.vue'
 import { getTeamTasks, createTask, updateTask, deleteTask, filterTeamTasks, getTeamMembers } from '@/api/team'
+import { getTeamSprints, type SprintVO } from '@/api/sprint'
 import type { Task, TaskAssignee } from '@/types/team'
 import { useAuthStore } from '@/store/auth'
 import { useTeamStore } from '@/store/team'
@@ -26,6 +27,8 @@ const selectedTaskId = ref<number>()
 const loading = ref(false)
 const dragLoading = ref(false)
 const teamMembers = ref<TaskAssignee[]>([])
+const sprints = ref<SprintVO[]>([])
+const selectedSprintFilter = ref<number | null>(null)
 const activeFilters = ref<any>({})
 const taskStatsRef = ref<InstanceType<typeof TaskStats>>()
 const showCompleted = ref(false)
@@ -59,6 +62,7 @@ const taskForm = reactive({
   description: '',
   priority: 'MEDIUM' as 'LOW' | 'MEDIUM' | 'HIGH',
   deadline: '',
+  sprintId: null as number | null,
 })
 
 const columnConfig: Record<string, { title: string, color: string, icon: string }> = {
@@ -84,6 +88,17 @@ const loadTasks = async () => {
       // Use regular API
       const res = await getTeamTasks(props.teamId)
       tasks = res || []
+    }
+    
+    // 应用 Sprint 筛选
+    if (selectedSprintFilter.value !== null) {
+      if (selectedSprintFilter.value === 0) {
+        // 筛选未分配 Sprint 的任务
+        tasks = tasks.filter(t => !t.sprintId)
+      } else {
+        // 筛选指定 Sprint 的任务
+        tasks = tasks.filter(t => t.sprintId === selectedSprintFilter.value)
+      }
     }
     
     // Reset columns
@@ -126,6 +141,17 @@ const loadTeamMembers = async () => {
   }
 }
 
+const loadSprints = async () => {
+  if (!props.teamId) return
+  try {
+    const allSprints = await getTeamSprints(props.teamId)
+    // 只显示规划中和进行中的 Sprint
+    sprints.value = allSprints.filter(s => s.status === 'PLANNING' || s.status === 'IN_PROGRESS')
+  } catch (error: any) {
+    console.error('Failed to load sprints:', error)
+  }
+}
+
 const handleFilterChange = (filters: any) => {
   activeFilters.value = filters
   // Performance optimization: Debounce filter changes to reduce API calls
@@ -138,6 +164,7 @@ const debouncedLoadTasks = debounce(loadTasks, 300)
 watch(() => props.teamId, (newId) => {
   if (newId) {
     loadTeamMembers()
+    loadSprints()
     loadTasks()
   }
 })
@@ -210,6 +237,7 @@ const handleCreateTask = async () => {
       description: '',
       priority: 'MEDIUM',
       deadline: '',
+      sprintId: null,
     })
   } catch (error: any) {
     console.error('Failed to create task:', error)
@@ -260,6 +288,7 @@ const refreshStats = () => {
 
 onMounted(() => {
   loadTeamMembers()
+  loadSprints()
   loadTasks()
 })
 </script>
@@ -268,10 +297,28 @@ onMounted(() => {
   <div class="task-board">
     <div class="board-header">
       <h2>任务看板</h2>
-      <button class="primary-btn" @click="showAddDialog = true">
-        <el-icon><Plus /></el-icon>
-        <span>新建任务</span>
-      </button>
+      <div class="header-actions">
+        <el-select
+          v-model="selectedSprintFilter"
+          placeholder="筛选 Sprint"
+          clearable
+          style="width: 200px; margin-right: 12px"
+          @change="loadTasks"
+        >
+          <el-option label="全部任务" :value="null" />
+          <el-option label="未分配 Sprint" :value="0" />
+          <el-option
+            v-for="sprint in sprints"
+            :key="sprint.id"
+            :label="`${sprint.name} (${sprint.totalTasks || 0})`"
+            :value="sprint.id"
+          />
+        </el-select>
+        <button class="primary-btn" @click="showAddDialog = true">
+          <el-icon><Plus /></el-icon>
+          <span>新建任务</span>
+        </button>
+      </div>
     </div>
 
     <!-- Task Filters -->
@@ -363,8 +410,25 @@ onMounted(() => {
             type="date"
             placeholder="选择日期"
             format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD"
             style="width: 100%"
           />
+        </el-form-item>
+
+        <el-form-item label="所属 Sprint">
+          <el-select
+            v-model="taskForm.sprintId"
+            placeholder="选择 Sprint（可选）"
+            clearable
+            style="width: 100%"
+          >
+            <el-option
+              v-for="sprint in sprints"
+              :key="sprint.id"
+              :label="`${sprint.name} (${sprint.status === 'IN_PROGRESS' ? '进行中' : '规划中'})`"
+              :value="sprint.id"
+            />
+          </el-select>
         </el-form-item>
       </el-form>
 
@@ -400,6 +464,11 @@ onMounted(() => {
     margin: 0;
     font-size: 24px;
     font-weight: 700;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
   }
 }
 

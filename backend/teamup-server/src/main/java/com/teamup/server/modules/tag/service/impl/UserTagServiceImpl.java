@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -31,8 +32,29 @@ public class UserTagServiceImpl extends ServiceImpl<UserTagMapper, UserTag> impl
     private final TagMapper tagMapper;
     
     @Override
+    public List<UserTagVO> getUserAllTags(Long userId) {
+        try {
+            log.info("获取用户所有标签: userId={}", userId);
+            List<UserTagVO> tags = userTagMapper.selectUserAllTags(userId);
+            log.info("成功获取 {} 个标签", tags != null ? tags.size() : 0);
+            return tags != null ? tags : new ArrayList<>();
+        } catch (Exception e) {
+            log.error("获取用户所有标签失败: userId={}", userId, e);
+            throw e;
+        }
+    }
+    
+    @Override
     public List<UserSkillVO> getUserSkills(Long userId) {
-        return userTagMapper.selectUserSkills(userId);
+        try {
+            log.info("获取用户技能标签: userId={}", userId);
+            List<UserSkillVO> skills = userTagMapper.selectUserSkills(userId);
+            log.info("成功获取 {} 个技能标签", skills != null ? skills.size() : 0);
+            return skills != null ? skills : new ArrayList<>();
+        } catch (Exception e) {
+            log.error("获取用户技能标签失败: userId={}", userId, e);
+            throw e;
+        }
     }
     
     @Override

@@ -45,7 +45,7 @@ public class ProjectController {
     private final UserService userService;
 
     /**
-     * 分页查询项目列表（只返回当前用户创建的项目）
+     * 分页查询项目列表（项目大厅 - 所有公开项目）
      */
     @GetMapping
     public Result<Page<Project>> getProjects(
@@ -77,12 +77,82 @@ public class ProjectController {
     }
 
     /**
+     * 获取我的项目列表（只返回当前用户创建的项目）
+     */
+    @GetMapping("/my")
+    public Result<Page<Project>> getMyProjects(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String keyword
+    ) {
+        // 限制分页参数范围
+        if (page < 1) page = 1;
+        if (size < 1) size = 10;
+        if (size > 100) size = 100;
+        
+        Long currentUserId = SecurityUtils.getUserId();
+        Page<Project> result = projectService.getMyProjectList(page, size, type, status, keyword, currentUserId);
+        return Result.success(result);
+    }
+
+    /**
      * 获取项目详情
      */
     @GetMapping("/{id}")
-    public Result<Project> getProjectById(@PathVariable Long id) {
+    public Result<Project> getProjectById(
+            @PathVariable Long id,
+            jakarta.servlet.http.HttpServletRequest request
+    ) {
         Project project = projectService.getProjectById(id);
+        
+        // 异步增加浏览次数（带防刷机制）
+        if (project != null) {
+            try {
+                Long userId = SecurityUtils.getUserId();
+                String ipAddress = getClientIpAddress(request);
+                projectService.incrementProjectViews(id, userId, ipAddress);
+            } catch (Exception e) {
+                // 增加浏览次数失败不影响主流程
+                // 用户可能未登录，使用 IP 地址
+                try {
+                    String ipAddress = getClientIpAddress(request);
+                    projectService.incrementProjectViews(id, null, ipAddress);
+                } catch (Exception ex) {
+                    // 忽略错误
+                }
+            }
+        }
+        
         return Result.success(project);
+    }
+    
+    /**
+     * 获取客户端真实 IP 地址
+     */
+    private String getClientIpAddress(jakarta.servlet.http.HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("Proxy-Client-IP");
+        }
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("WL-Proxy-Client-IP");
+        }
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("HTTP_CLIENT_IP");
+        }
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("HTTP_X_FORWARDED_FOR");
+        }
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getRemoteAddr();
+        }
+        // 处理多个 IP 的情况（取第一个）
+        if (ip != null && ip.contains(",")) {
+            ip = ip.split(",")[0].trim();
+        }
+        return ip;
     }
 
     /**
@@ -90,7 +160,19 @@ public class ProjectController {
      */
     @GetMapping("/{id}/members")
     public Result<java.util.List<TeamMemberVO>> getProjectMembers(@PathVariable Long id) {
-        // 根据 projectId 查找团队
+        // 先查询项目，获取关联的团队ID
+        Project project = projectService.getProjectById(id);
+        if (project == null) {
+            return Result.success(java.util.Collections.emptyList());
+        }
+        
+        // 如果项目有关联的团队ID，直接使用
+        if (project.getTeamId() != null) {
+            java.util.List<TeamMemberVO> members = teamService.getTeamMembers(project.getTeamId());
+            return Result.success(members);
+        }
+        
+        // 兼容旧逻辑：通过 projectId 查找团队
         LambdaQueryWrapper<Team> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Team::getProjectId, id);
         Team team = teamService.getOne(wrapper);
@@ -108,12 +190,29 @@ public class ProjectController {
      * 创建项目
      */
     @PostMapping
-    public Result<Project> createProject(@RequestBody Project project) {
+    public Result<Project> createProject(@RequestBody java.util.Map<String, Object> requestBody) {
         // 检查当前用户角色，导师不能创建项目
         Long currentUserId = SecurityUtils.getUserId();
         if (hasRole(currentUserId, "MENTOR")) {
             return Result.error(403, "导师不能创建项目");
         }
+        
+        // 构建 Project 对象
+        Project project = new Project();
+        project.setTitle((String) requestBody.get("title"));
+        project.setProjectType((String) requestBody.get("projectType"));
+        project.setDescription((String) requestBody.get("description"));
+        project.setRequirements((String) requestBody.get("requirements"));
+        project.setTeamSize(requestBody.get("teamSize") != null ? ((Number) requestBody.get("teamSize")).intValue() : 5);
+        project.setWeeklyHours(requestBody.get("weeklyHours") != null ? ((Number) requestBody.get("weeklyHours")).intValue() : 10);
+        project.setExpectedDuration(requestBody.get("expectedDuration") != null ? ((Number) requestBody.get("expectedDuration")).intValue() : 30);
+        project.setTeamMode((String) requestBody.get("teamMode"));
+        
+        // 处理 existingTeamId -> teamId 的映射
+        if (requestBody.containsKey("existingTeamId") && requestBody.get("existingTeamId") != null) {
+            project.setTeamId(((Number) requestBody.get("existingTeamId")).longValue());
+        }
+        
         Project created = projectService.createProject(project, currentUserId);
         return Result.success(created);
     }
@@ -388,6 +487,37 @@ public class ProjectController {
     public Result<Void> deleteMilestone(@PathVariable Long milestoneId) {
         Long userId = SecurityUtils.getUserId();
         milestoneService.deleteMilestone(milestoneId, userId);
+        return Result.success(null);
+    }
+    
+    /**
+     * 完成项目（并处理团队）
+     */
+    @PostMapping("/{id}/complete")
+    public Result<Void> completeProject(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> request
+    ) {
+        Long userId = SecurityUtils.getUserId();
+        String teamAction = (String) request.get("teamAction"); // KEEP 或 DISSOLVE
+        String summary = (String) request.get("summary");
+        
+        projectService.completeProject(id, userId, teamAction, summary);
+        return Result.success(null);
+    }
+    
+    /**
+     * 为项目关联团队
+     */
+    @PostMapping("/{id}/associate-team")
+    public Result<Void> associateTeam(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> request
+    ) {
+        Long userId = SecurityUtils.getUserId();
+        Long teamId = ((Number) request.get("teamId")).longValue();
+        
+        projectService.associateTeamWithProject(id, teamId, userId);
         return Result.success(null);
     }
     

@@ -40,9 +40,9 @@
         </div>
 
         <!-- 组队意向标签区域 -->
-        <div class="tc-intentions" v-if="talent.intentions && talent.intentions.length > 0">
+        <div class="tc-intentions" v-if="safeIntentions.length > 0">
           <el-tag 
-            v-if="talent.intentions.includes('JOIN_PROJECT')" 
+            v-if="safeIntentions.includes('JOIN_PROJECT')" 
             type="primary" 
             size="small"
             class="tc-intention-tag"
@@ -50,7 +50,7 @@
             寻找项目
           </el-tag>
           <el-tag 
-            v-if="talent.intentions.includes('FIND_TEAMMATES')" 
+            v-if="safeIntentions.includes('FIND_TEAMMATES')" 
             type="success" 
             size="small"
             class="tc-intention-tag"
@@ -58,7 +58,7 @@
             寻找队友
           </el-tag>
           <el-tag 
-            v-if="talent.intentions.includes('FIND_MENTOR')" 
+            v-if="safeIntentions.includes('FIND_MENTOR')" 
             type="warning" 
             size="small"
             class="tc-intention-tag"
@@ -66,7 +66,7 @@
             寻找导师
           </el-tag>
           <el-tag 
-            v-if="talent.intentions.includes('HELP_NEWBIE')" 
+            v-if="safeIntentions.includes('HELP_NEWBIE')" 
             type="info" 
             size="small"
             class="tc-intention-tag"
@@ -93,20 +93,22 @@ import { Clock } from '@element-plus/icons-vue'
 
 // 定义 TalentVO 接口
 export interface TalentVO {
-  id: number
+  userId: number
   username: string
   realName: string
+  email?: string
   avatarUrl?: string
   department: string
   major: string
+  grade?: number
   bio?: string
+  wechat?: string
+  qq?: string
+  phone?: string
   creditScore?: number
-  skills: string[]
-  intentions: string[]
+  isAvailable?: boolean
+  intentions?: string[]
   weeklyHours?: number
-  notes?: string
-  lastLoginAt?: string
-  status?: string
 }
 
 // 定义 props
@@ -135,13 +137,19 @@ const departmentClass = computed(() => {
 
 // 显示的技能标签（最多5个）
 const displaySkills = computed(() => {
-  return props.talent.skills.slice(0, 5)
+  // 暂时返回空数组，因为后端没有返回技能列表
+  // 如果需要显示技能，需要在后端 TalentVO 中添加技能字段
+  return []
 })
 
 // 剩余技能数量
 const remainingSkillsCount = computed(() => {
-  const total = props.talent.skills.length
-  return total > 5 ? total - 5 : 0
+  return 0
+})
+
+// 安全访问 intentions 数组
+const safeIntentions = computed(() => {
+  return props.talent.intentions || []
 })
 
 // 文本截断工具函数

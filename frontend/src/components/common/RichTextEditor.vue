@@ -110,6 +110,64 @@
         </el-button-group>
       </div>
 
+      <!-- 表格编辑工具 -->
+      <div class="toolbar-group" v-if="editor.isActive('table')">
+        <el-button-group>
+          <el-button
+            @click="editor.chain().focus().addColumnBefore().run()"
+            size="small"
+            title="在左侧插入列"
+          >
+            ←列
+          </el-button>
+          <el-button
+            @click="editor.chain().focus().addColumnAfter().run()"
+            size="small"
+            title="在右侧插入列"
+          >
+            列→
+          </el-button>
+          <el-button
+            @click="editor.chain().focus().deleteColumn().run()"
+            size="small"
+            title="删除列"
+          >
+            删列
+          </el-button>
+        </el-button-group>
+        <el-button-group>
+          <el-button
+            @click="editor.chain().focus().addRowBefore().run()"
+            size="small"
+            title="在上方插入行"
+          >
+            ↑行
+          </el-button>
+          <el-button
+            @click="editor.chain().focus().addRowAfter().run()"
+            size="small"
+            title="在下方插入行"
+          >
+            行↓
+          </el-button>
+          <el-button
+            @click="editor.chain().focus().deleteRow().run()"
+            size="small"
+            title="删除行"
+          >
+            删行
+          </el-button>
+        </el-button-group>
+        <el-button
+          @click="editor.chain().focus().deleteTable().run()"
+          size="small"
+          type="danger"
+          title="删除表格"
+        >
+          删除表格
+        </el-button>
+      </div>
+
       <div class="toolbar-group">
         <el-button
           @click="editor.chain().focus().undo().run()"
@@ -148,7 +206,7 @@ import { onBeforeUnmount, watch } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
-import Link from '@tiptap/extension-link'
+import Underline from '@tiptap/extension-underline'
 import { Table } from '@tiptap/extension-table'
 import { TableRow } from '@tiptap/extension-table-row'
 import { TableCell } from '@tiptap/extension-table-cell'
@@ -186,18 +244,14 @@ const editor = useEditor({
     StarterKit.configure({
       heading: {
         levels: [1, 2, 3]
-      }
+      },
+      // 禁用 StarterKit 中的 codeBlock，使用自定义的 CodeBlockLowlight
+      codeBlock: false
     }),
+    Underline,
     Image.configure({
       inline: true,
       allowBase64: true
-    }),
-    Link.configure({
-      openOnClick: false,
-      HTMLAttributes: {
-        target: '_blank',
-        rel: 'noopener noreferrer'
-      }
     }),
     Table.configure({
       resizable: true
@@ -214,7 +268,7 @@ const editor = useEditor({
   ],
   editorProps: {
     attributes: {
-      class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none',
+      class: 'tiptap-editor',
       style: `min-height: ${props.minHeight}`
     }
   },
@@ -231,19 +285,22 @@ watch(() => props.modelValue, (newValue) => {
 })
 
 const setLink = () => {
-  const previousUrl = editor.value?.getAttributes('link').href
-  const url = window.prompt('请输入链接地址', previousUrl)
+  ElMessage.warning('链接功能暂时禁用')
+  return
+  
+  // const previousUrl = editor.value?.getAttributes('link').href
+  // const url = window.prompt('请输入链接地址', previousUrl)
 
-  if (url === null) {
-    return
-  }
+  // if (url === null) {
+  //   return
+  // }
 
-  if (url === '') {
-    editor.value?.chain().focus().extendMarkRange('link').unsetLink().run()
-    return
-  }
+  // if (url === '') {
+  //   editor.value?.chain().focus().extendMarkRange('link').unsetLink().run()
+  //   return
+  // }
 
-  editor.value?.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
+  // editor.value?.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
 }
 
 const addImage = async () => {
@@ -254,13 +311,30 @@ const addImage = async () => {
     const file = (e.target as HTMLInputElement).files?.[0]
     if (!file) return
 
+    // 检查文件大小（5MB）
+    const maxSize = 5 * 1024 * 1024
+    if (file.size > maxSize) {
+      ElMessage.error('图片大小不能超过 5MB')
+      return
+    }
+
+    const loadingMessage = ElMessage.info('图片上传中...')
+
     try {
       const res: any = await uploadMessageImage(file)
-      if (res?.data?.url) {
-        editor.value?.chain().focus().setImage({ src: res.data.url }).run()
+      const imageUrl = res?.data?.url || res?.url || res?.data?.data?.url
+      
+      if (imageUrl) {
+        editor.value?.chain().focus().setImage({ src: imageUrl }).run()
+        loadingMessage.close()
+        ElMessage.success('图片上传成功')
+      } else {
+        loadingMessage.close()
+        ElMessage.error('图片上传失败：未获取到图片地址')
       }
-    } catch (error) {
-      ElMessage.error('图片上传失败')
+    } catch (error: any) {
+      loadingMessage.close()
+      ElMessage.error(error?.response?.data?.message || '图片上传失败')
     }
   }
   input.click()
@@ -276,6 +350,7 @@ onBeforeUnmount(() => {
   border: 1px solid var(--el-border-color);
   border-radius: 4px;
   overflow: hidden;
+  background: var(--el-bg-color);
 
   .editor-toolbar {
     display: flex;
@@ -283,7 +358,7 @@ onBeforeUnmount(() => {
     gap: 8px;
     padding: 8px;
     border-bottom: 1px solid var(--el-border-color-lighter);
-    background: var(--el-fill-color-lighter);
+    background: var(--el-bg-color-overlay);
 
     .toolbar-group {
       display: flex;
@@ -293,11 +368,13 @@ onBeforeUnmount(() => {
 
   .editor-content {
     padding: 12px;
-    background: white;
+    background: var(--el-bg-color);
 
-    :deep(.ProseMirror) {
+    :deep(.tiptap-editor) {
       outline: none;
       min-height: v-bind(minHeight);
+      color: var(--el-text-color-primary);
+      background: transparent;
 
       p {
         margin: 0.5em 0;
@@ -372,7 +449,7 @@ onBeforeUnmount(() => {
   .editor-footer {
     padding: 8px 12px;
     border-top: 1px solid var(--el-border-color-lighter);
-    background: var(--el-fill-color-lighter);
+    background: var(--el-bg-color-overlay);
     text-align: right;
 
     .char-count {

@@ -37,7 +37,8 @@ const isContentManageActive = computed(() => {
   return path === '/admin/reports' || 
          path === '/admin/tags' || 
          path === '/admin/announcements' ||
-         path === '/admin/newbie'
+         path === '/admin/newbie' ||
+         path === '/admin/department-major'
 })
 
 const isSystemSettingsActive = computed(() => {
@@ -70,12 +71,13 @@ const menuItems = computed(() => {
       { key: 'system-settings', title: '系统设置', path: '/admin/settings' },
     ];
     
-    // 内容管理子菜单（合并举报、标签、公告、新手保护）
+    // 内容管理子菜单（合并举报、标签、公告、新手保护、院系专业）
     const contentChildren = [
       { key: 'report-manage', title: '举报管理', path: '/admin/reports' },
       { key: 'tag-manage', title: '标签管理', path: '/admin/tags' },
       { key: 'announcement-manage', title: '公告管理', path: '/admin/announcements' },
       { key: 'newbie-protection', title: '新手保护', path: '/admin/newbie' },
+      { key: 'department-major', title: '院系专业管理', path: '/admin/department-major' },
     ];
     
     // 系统设置子菜单（合并审计日志、数据导出）
@@ -132,10 +134,10 @@ const menuItems = computed(() => {
         children: settingsChildren
       },
       {
-        key: 'admin-profile',
-        title: '账户管理',
+        key: 'account-settings',
+        title: '账户设置',
         icon: User,
-        path: '/admin/profile'
+        path: '/account/settings'
       }
     ];
   } else {
@@ -171,9 +173,15 @@ const menuItems = computed(() => {
 
   // 导师功能
   if (authStore.hasRole(['MENTOR', 'PLATFORM_ADMIN'])) {
-    const mentorChildren = [
-      { key: 'mentor-scoring', title: '导师评分', path: '/mentor/scoring' }
-    ];
+    const mentorChildren = [];
+    
+    // 只有纯导师角色才显示"我的导师申请"和"导师评分"
+    if (authStore.hasRole(['MENTOR']) && !isAdmin) {
+      mentorChildren.push(
+        { key: 'mentor-applications', title: '我的导师申请', path: '/mentor/applications' },
+        { key: 'mentor-scoring', title: '导师评分', path: '/mentor/scoring' }
+      );
+    }
     
     // 如果是管理员，添加导师系统管理功能
     if (authStore.hasRole(['PLATFORM_ADMIN'])) {
@@ -183,18 +191,22 @@ const menuItems = computed(() => {
       );
     }
     
-    const mentorItem = {
-      key: 'mentor',
-      title: '导师',
-      icon: School,
-      children: mentorChildren
-    };
-    
-    const competitionIndex = finalItems.findIndex(item => item.key === 'competition');
-    if (competitionIndex !== -1) {
-      finalItems.splice(competitionIndex + 1, 0, mentorItem);
-    } else {
-      finalItems.push(mentorItem);
+    // 只有在有子菜单时才添加导师菜单项
+    if (mentorChildren.length > 0) {
+      const mentorItem = {
+        key: 'mentor',
+        title: '导师',
+        icon: School,
+        path: mentorChildren[0].path, // 使用第一个子菜单作为默认路径
+        children: mentorChildren
+      };
+      
+      const competitionIndex = finalItems.findIndex(item => item.key === 'competition');
+      if (competitionIndex !== -1) {
+        finalItems.splice(competitionIndex + 1, 0, mentorItem);
+      } else {
+        finalItems.push(mentorItem);
+      }
     }
   }
 
@@ -232,6 +244,12 @@ const toggleCollapse = () => {
 }
 
 const handleSelect = (path: string, item?: any) => {
+  // 验证路径是否有效
+  if (!path || path === 'undefined') {
+    console.warn('Invalid path:', path, 'item:', item)
+    return
+  }
+  
   // 如果有子菜单且未折叠，切换展开状态
   if (item?.children && !isCollapsed.value) {
     const newExpanded = new Set(expandedMenus.value)
@@ -243,6 +261,16 @@ const handleSelect = (path: string, item?: any) => {
     }
     
     expandedMenus.value = newExpanded
+    return
+  }
+  
+  // 特殊处理：团队菜单项
+  // 不在这里直接跳转到团队详情，而是跳转到团队列表页
+  // 让 TeamList.vue 来处理自动跳转逻辑（它有权限验证）
+  if (item?.key === 'team') {
+    // 直接跳转到团队列表页，不带任何参数
+    // TeamList.vue 会自动检查并跳转到上次访问的团队（如果有权限）
+    router.push({ name: 'TeamList' })
     return
   }
   
@@ -313,7 +341,12 @@ const isActive = (path: string) => {
   if (currentPath === path) return true
 
   // 对于 /admin，只匹配精确路径，不匹配子路径
-  const rootPaths = ['/admin', '/competition', '/project', '/team', '/mentor', '/profile']
+  // 特殊处理：/team 路径应该匹配所有 /team/* 的子路径
+  if (path === '/team' && currentPath.startsWith('/team/')) {
+    return true
+  }
+  
+  const rootPaths = ['/admin', '/competition', '/project', '/mentor', '/profile']
   if (rootPaths.includes(path)) {
     return false
   }

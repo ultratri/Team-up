@@ -13,12 +13,14 @@
               <el-input v-model="profileForm.realName" placeholder="请输入真实姓名" />
             </el-form-item>
 
-            <el-form-item label="院系" prop="department">
-              <el-input v-model="profileForm.department" placeholder="请输入院系" />
-            </el-form-item>
-
-            <el-form-item label="专业" prop="major">
-              <el-input v-model="profileForm.major" placeholder="请输入专业" />
+            <el-form-item label="院系专业" prop="department">
+              <el-cascader
+                v-model="selectedDeptMajor"
+                :options="cascaderOptions"
+                placeholder="请选择院系和专业"
+                @change="handleDeptMajorChange"
+                style="width: 100%"
+              />
             </el-form-item>
 
             <el-form-item label="年级" prop="grade">
@@ -81,11 +83,11 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, onMounted } from 'vue'
+import { reactive, ref, onMounted, computed } from 'vue'
 import { ElMessage, type FormInstance } from 'element-plus'
-import { ArrowRight } from '@element-plus/icons-vue'
 import { getProfile, updateProfile } from '../../api/profile'
 import { useAuthStore } from '../../store/auth'
+import { getDepartmentMajorPreset, type DepartmentMajorDict } from '../../utils/departmentMajorPreset'
 import AbilityRadar from '../../components/charts/AbilityRadar.vue'
 import CreditDisplay from '../../components/profile/CreditDisplay.vue'
 import ProjectHistory from './ProjectHistory.vue'
@@ -93,6 +95,8 @@ import ProjectHistory from './ProjectHistory.vue'
 const authStore = useAuthStore()
 const loading = ref(false)
 const formRef = ref<FormInstance>()
+const departmentMajorData = ref<DepartmentMajorDict[]>([])
+const selectedDeptMajor = ref<string[]>([])
 
 const profileForm = reactive({
   realName: '',
@@ -105,16 +109,36 @@ const profileForm = reactive({
   projectExperience: '',
 })
 
+// 转换为级联选择器格式
+const cascaderOptions = computed(() => {
+  return departmentMajorData.value.map(dept => ({
+    value: dept.department,
+    label: dept.department,
+    children: dept.majors.map(major => ({
+      value: major,
+      label: major
+    }))
+  }))
+})
+
 // 表单验证规则
 const rules = {
   realName: [{ required: true, message: '请输入真实姓名', trigger: 'blur' }],
-  department: [{ required: true, message: '请输入院系', trigger: 'blur' }],
-  major: [{ required: true, message: '请输入专业', trigger: 'blur' }],
+  department: [{ required: true, message: '请选择院系', trigger: 'change' }],
+  major: [{ required: true, message: '请选择专业', trigger: 'change' }],
   grade: [{ required: true, message: '请选择年级', trigger: 'change' }],
   wechat: [{ required: true, message: '请输入微信号', trigger: 'blur' }],
   qq: [{ required: true, message: '请输入QQ号', trigger: 'blur' }],
   bio: [{ required: true, message: '请输入个人简介', trigger: 'blur' }],
   projectExperience: [{ required: true, message: '请输入项目经验', trigger: 'blur' }],
+}
+
+// 处理级联选择器变化
+const handleDeptMajorChange = (value: string[]) => {
+  if (value && value.length === 2) {
+    profileForm.department = value[0]
+    profileForm.major = value[1]
+  }
 }
 
 const loadProfile = async () => {
@@ -124,9 +148,13 @@ const loadProfile = async () => {
     const res = await getProfile(authStore.user.id)
     if (res) {
       Object.assign(profileForm, res)
+      // 设置级联选择器的值
+      if (res.department && res.major) {
+        selectedDeptMajor.value = [res.department, res.major]
+      }
     }
   } catch (error) {
-    console.error(error)
+    console.error('加载个人资料失败:', error)
   }
 }
 
@@ -147,7 +175,7 @@ const handleSave = async () => {
   try {
     await updateProfile(authStore.user.id, profileForm)
     
-    // 刷新auth store中的用户信息
+    // 刷新 auth store 中的用户信息
     await authStore.refreshUserInfo()
     
     ElMessage.success('保存成功')
@@ -159,8 +187,11 @@ const handleSave = async () => {
   }
 }
 
-onMounted(() => {
-  loadProfile()
+onMounted(async () => {
+  // 加载院系专业数据
+  departmentMajorData.value = await getDepartmentMajorPreset()
+  // 加载个人资料
+  await loadProfile()
 })
 </script>
 

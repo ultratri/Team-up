@@ -17,6 +17,7 @@ public class Task {
     private Long id;
     
     private Long teamId;
+    private Long sprintId;  // 关联的Sprint ID
     private String title;
     private String description;
     private String status;  // TODO, DOING, REVIEW, DONE

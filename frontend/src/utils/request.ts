@@ -124,12 +124,21 @@ service.interceptors.response.use(
   },
   (error) => {
     requestCount--
-    
+
     // 处理错误响应
     if (error.response) {
       const status = error.response.status
       const data = error.response.data
       const message = data?.message || '请求失败'
+
+      // 开发阶段：打印真实请求信息，方便定位“系统错误”具体原因
+      // 生产环境可按需移除
+      console.error('[API Error]', {
+        url: error.config?.baseURL ? `${error.config.baseURL}${error.config.url}` : error.config?.url,
+        method: error.config?.method,
+        status,
+        data
+      })
       
       // 检查是否是登录接口，如果是则不在拦截器中显示错误，让组件自己处理
       const isLoginRequest = error.config?.url?.includes('/auth/login')

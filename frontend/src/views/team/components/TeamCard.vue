@@ -25,6 +25,15 @@
       <div class="team-header">
         <h3 class="team-name" id="`team-name-${team.id}`">{{ team.name || '未命名团队' }}</h3>
         <el-tag 
+          v-if="team.status" 
+          :type="statusTagType" 
+          size="small"
+          class="status-tag"
+          :aria-label="`团队状态: ${statusLabel}`"
+        >
+          {{ statusLabel }}
+        </el-tag>
+        <el-tag 
           v-if="userRole" 
           :type="roleTagType" 
           size="small"
@@ -119,6 +128,38 @@ const roleLabel = computed(() => {
       return '成员'
     default:
       return '成员'
+  }
+})
+
+// 状态标签类型
+const statusTagType = computed(() => {
+  switch (props.team.status) {
+    case 'ACTIVE':
+      return 'success'
+    case 'INACTIVE':
+      return 'info'
+    case 'DISSOLVED':
+      return 'danger'
+    case 'ARCHIVED':
+      return 'warning'
+    default:
+      return 'info'
+  }
+})
+
+// 状态标签文本
+const statusLabel = computed(() => {
+  switch (props.team.status) {
+    case 'ACTIVE':
+      return '活跃'
+    case 'INACTIVE':
+      return '不活跃'
+    case 'DISSOLVED':
+      return '已解散'
+    case 'ARCHIVED':
+      return '已归档'
+    default:
+      return props.team.status || '未知'
   }
 })
 
@@ -238,6 +279,11 @@ const handleClick = () => {
   white-space: nowrap;
   flex: 1;
   transition: color var(--transition-base);
+}
+
+.status-tag {
+  flex-shrink: 0;
+  animation: slideInRight 0.3s var(--ease-out);
 }
 
 .role-tag {

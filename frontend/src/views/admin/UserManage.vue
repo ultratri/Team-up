@@ -395,12 +395,12 @@ const statusText = (status: string) => {
 }
 
 const getRoleTagType = (role: string) => {
-  const map: Record<string, string> = {
-    STUDENT: '',
+  const map: Record<string, any> = {
+    STUDENT: undefined,
     MENTOR: 'warning',
     PLATFORM_ADMIN: 'danger'
   }
-  return map[role] || ''
+  return map[role]
 }
 
 const getRoleText = (role: string) => {

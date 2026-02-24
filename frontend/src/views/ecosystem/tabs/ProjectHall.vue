@@ -71,7 +71,7 @@
         <div class="ph-card__meta">
           <span class="meta-item">
             <el-icon><User /></el-icon>
-            {{ project.currentMembers }}/{{ project.maxMembers }}
+            {{ project.currentMembers || 0 }}/{{ project.teamSize || 0 }}
           </span>
           <span class="meta-item">
             <el-icon><Calendar /></el-icon>
@@ -89,7 +89,7 @@
 
         <div class="ph-card__footer">
           <el-avatar :size="32" :src="project.creator?.avatar">
-            {{ project.creator?.realName?.charAt(0) }}
+            {{ (project.creator?.realName || project.creator?.username || '创建者').charAt(0) }}
           </el-avatar>
           <span class="creator-name">{{ project.creator?.realName }}</span>
         </div>

@@ -10,7 +10,7 @@ interface PageResult<T> {
   [key: string]: any
 }
 
-// 获取项目列表
+// 获取项目列表（项目大厅）
 export async function getProjects(params?: {
   page?: number
   size?: number
@@ -20,6 +20,29 @@ export async function getProjects(params?: {
 }) {
   // request.ts 已经将后端 Result<T> 解包成 T，这里拿到的就是 Page<Project>
   const page = await request.get<PageResult<Project>>('/projects', { params })
+
+  if (!page) {
+    return {
+      list: [],
+      total: 0,
+    }
+  }
+
+  return {
+    list: page.records || [],
+    total: page.total ?? 0,
+  }
+}
+
+// 获取我的项目列表
+export async function getMyProjects(params?: {
+  page?: number
+  size?: number
+  type?: string
+  status?: string
+  keyword?: string
+}) {
+  const page = await request.get<PageResult<Project>>('/projects/my', { params })
 
   if (!page) {
     return {
@@ -194,4 +217,19 @@ export function updateProjectMilestone(milestoneId: number, data: Partial<Projec
 // 删除里程碑
 export function deleteProjectMilestone(milestoneId: number) {
   return request.delete(`/projects/milestones/${milestoneId}`)
+}
+
+// 完成项目（并处理团队）
+export function completeProject(projectId: number, teamAction: 'KEEP' | 'DISSOLVE', summary?: string) {
+  return request.post(`/projects/${projectId}/complete`, {
+    teamAction,
+    summary
+  })
+}
+
+// 为项目关联团队
+export function associateTeamWithProject(projectId: number, teamId: number) {
+  return request.post(`/projects/${projectId}/associate-team`, {
+    teamId
+  })
 }

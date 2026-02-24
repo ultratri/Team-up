@@ -155,9 +155,38 @@
         </el-card>
       </el-col>
 
-      <!-- 右侧：安全提示 -->
+      <!-- 右侧：头像和安全提示 -->
       <el-col :span="8">
-        <el-card shadow="never" class="tips-card">
+        <!-- 头像设置 -->
+        <el-card shadow="never" class="avatar-card">
+          <template #header>
+            <span class="card-title">头像设置</span>
+          </template>
+          <div class="avatar-section">
+            <el-upload
+              class="avatar-uploader"
+              :show-file-list="false"
+              :auto-upload="false"
+              :on-change="handleAvatarChange"
+              accept="image/*"
+            >
+              <div class="avatar-wrapper" v-loading="avatarUploading">
+                <el-avatar :src="userInfo.avatar" :size="120">
+                  {{ userInfo.username?.charAt(0) }}
+                </el-avatar>
+                <div class="avatar-overlay">
+                  <el-icon><Camera /></el-icon>
+                  <span>更换头像</span>
+                </div>
+              </div>
+            </el-upload>
+            <div class="avatar-tips">
+              推荐尺寸：200x200，最大2MB
+            </div>
+          </div>
+        </el-card>
+
+        <el-card shadow="never" class="tips-card" style="margin-top: 20px">
           <template #header>
             <span class="card-title">安全提示</span>
           </template>
@@ -253,8 +282,10 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/store/auth'
 import { ElMessage } from 'element-plus'
-import { Warning, Lock, Message } from '@element-plus/icons-vue'
-import { getUserById, updateUser, getUserAvailability, updateUserAvailability, type UserAvailabilityRequest } from '@/api/user'
+import { Warning, Lock, Message, Camera } from '@element-plus/icons-vue'
+import { getUserById, updateUser, getUserAvailabilityById, updateUserAvailability, type UserAvailabilityRequest } from '@/api/user'
+import { uploadAvatar } from '@/api/upload'
+import { request } from '@utils/request'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -266,6 +297,7 @@ const showPhoneDialog = ref(false)
 const showPasswordDialog = ref(false)
 const saving = ref(false)
 const changingPassword = ref(false)
+const avatarUploading = ref(false)
 
 // 组队意向相关状态
 const savingAvailability = ref(false)
@@ -346,33 +378,14 @@ const passwordRules = {
 }
 
 const loadUserInfo = async () => {
-  if (!authStore.user?.id) {
-    // 如果没有用户ID，使用 store 中的数据
+  // 直接使用 store 中的用户数据
+  if (authStore.user) {
     userInfo.value = {
-      username: authStore.user?.username || '',
-      userCode: authStore.user?.userCode || '',
-      email: authStore.user?.email || '',
-      phone: authStore.user?.phone || ''
-    }
-    return
-  }
-  
-  try {
-    const data = await getUserById(authStore.user.id)
-    userInfo.value = {
-      username: data.username || authStore.user.username || '',
-      userCode: data.userCode || authStore.user.userCode || '',
-      email: data.email || authStore.user.email || '',
-      phone: data.phone || authStore.user.phone || ''
-    }
-  } catch (error: any) {
-    console.error('加载用户信息失败:', error)
-    // 失败时使用 store 中的数据
-    userInfo.value = {
-      username: authStore.user?.username || '',
-      userCode: authStore.user?.userCode || '',
-      email: authStore.user?.email || '',
-      phone: authStore.user?.phone || ''
+      username: authStore.user.username || '',
+      userCode: authStore.user.userCode || '',
+      email: authStore.user.email || '',
+      phone: authStore.user.phone || '',
+      avatar: authStore.user.profile?.avatarUrl || ''
     }
   }
 }
@@ -480,7 +493,12 @@ const changePassword = async () => {
 // 加载组队意向设置
 const loadAvailability = async () => {
   try {
-    const data = await getUserAvailability()
+    const userId = authStore.user?.id
+    if (!userId) {
+      console.error('用户ID不存在')
+      return
+    }
+    const data = await getUserAvailabilityById(userId)
     availabilityForm.isAvailable = data.isAvailable
     availabilityForm.intentions = data.intentions || []
     availabilityForm.visibility = data.visibility || 'PUBLIC'
@@ -498,7 +516,11 @@ const loadAvailability = async () => {
     }
   } catch (error: any) {
     console.error('加载组队意向失败:', error)
-    // 失败时使用默认值
+    // 使用默认值，不显示错误消息
+    availabilityForm.isAvailable = false
+    availabilityForm.intentions = []
+    availabilityForm.weeklyHours = 0
+    availabilityForm.notes = ''
   }
 }
 
@@ -540,6 +562,57 @@ const handleSaveAvailability = async () => {
     ElMessage.error(error.message || '保存失败')
   } finally {
     savingAvailability.value = false
+  }
+}
+
+// 处理头像上传
+const handleAvatarChange = async (uploadFile: any) => {
+  const file = uploadFile.raw
+  if (!file) return
+
+  // 验证文件类型
+  const isImage = file.type.startsWith('image/')
+  if (!isImage) {
+    ElMessage.error('只能上传图片文件')
+    return
+  }
+
+  // 验证文件大小（2MB）
+  const isLt2M = file.size / 1024 / 1024 < 2
+  if (!isLt2M) {
+    ElMessage.error('图片大小不能超过 2MB')
+    return
+  }
+
+  avatarUploading.value = true
+  try {
+    const res: any = await uploadAvatar(file)
+    const avatarUrl = res?.url || res?.data?.url
+    
+    if (!avatarUrl) {
+      throw new Error('上传失败，未返回图片地址')
+    }
+
+    const userId = authStore.user?.id
+    if (!userId) {
+      throw new Error('用户ID不存在')
+    }
+
+    // 调用更新资料接口
+    await request.put(`/profile/${userId}`, { avatarUrl })
+    
+    // 立即更新本地状态
+    userInfo.value.avatar = avatarUrl
+    
+    // 刷新 store 中的用户信息
+    await authStore.refreshUserInfo()
+    
+    ElMessage.success('头像上传成功')
+  } catch (error: any) {
+    console.error('头像上传失败:', error)
+    ElMessage.error(error.message || '头像上传失败')
+  } finally {
+    avatarUploading.value = false
   }
 }
 
@@ -674,6 +747,60 @@ onMounted(() => {
   .hint {
     font-size: 12px;
     color: var(--text-color-muted);
+  }
+}
+
+.avatar-card {
+  .avatar-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 0;
+
+    .avatar-uploader {
+      cursor: pointer;
+
+      .avatar-wrapper {
+        position: relative;
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        overflow: hidden;
+
+        &:hover .avatar-overlay {
+          opacity: 1;
+        }
+
+        .avatar-overlay {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.6);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          opacity: 0;
+          transition: opacity 0.3s;
+          font-size: 14px;
+
+          .el-icon {
+            font-size: 24px;
+            margin-bottom: 4px;
+          }
+        }
+      }
+    }
+
+    .avatar-tips {
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--text-color-muted);
+      text-align: center;
+    }
   }
 }
 </style>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { uploadAvatar, uploadCover } from '@/api/upload'
 import { Plus } from '@element-plus/icons-vue'
@@ -26,6 +26,11 @@ const emit = defineEmits<{
 const uploading = ref(false)
 const imageUrl = ref(props.modelValue)
 
+// 监听 modelValue 变化
+watch(() => props.modelValue, (newVal) => {
+  imageUrl.value = newVal
+})
+
 const beforeUpload = (file: File) => {
   const isImage = file.type.startsWith('image/')
   if (!isImage) {
@@ -51,13 +56,23 @@ const handleUpload = async (file: File) => {
     const uploadFn = props.type === 'avatar' ? uploadAvatar : uploadCover
     const res = await uploadFn(file)
     
-    if (res && res.data && res.data.url) {
-      imageUrl.value = res.data.url
-      emit('update:modelValue', res.data.url)
+    // 处理多种可能的响应格式
+    let url = null
+    if (res?.url) {
+      url = res.url
+    } else if (res?.data?.url) {
+      url = res.data.url
+    }
+    
+    if (url) {
+      imageUrl.value = url
+      emit('update:modelValue', url)
       ElMessage.success('上传成功')
+    } else {
+      ElMessage.error('上传失败：未返回图片地址')
     }
   } catch (error) {
-    console.error(error)
+    console.error('上传失败:', error)
     ElMessage.error('上传失败')
   } finally {
     uploading.value = false

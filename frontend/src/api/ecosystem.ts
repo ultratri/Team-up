@@ -57,11 +57,9 @@ export interface Moment {
  * 获取统计数据
  */
 export async function getEcosystemStats(): Promise<EcosystemStats> {
-  const res = await request.get<any>('/ecosystem/stats')
-  if (res.code === 200 && res.data) {
-    return res.data
-  }
-  return { projectCount: 0, talentCount: 0, competitionCount: 0 }
+  // request.ts 的响应拦截器已经解包了 res.data
+  const data = await request.get<EcosystemStats>('/ecosystem/stats')
+  return data || { projectCount: 0, talentCount: 0, competitionCount: 0 }
 }
 
 /**
@@ -73,25 +71,19 @@ export async function getResources(params: {
   type?: string
   sortBy?: string
 }): Promise<{ records: Resource[]; total: number }> {
-  const res = await request.get<any>('/ecosystem/resources', { params })
-  if (res.code === 200 && res.data) {
-    return {
-      records: res.data.records || [],
-      total: res.data.total || 0
-    }
+  const data = await request.get<any>('/ecosystem/resources', { params })
+  return {
+    records: data?.records || [],
+    total: data?.total || 0
   }
-  return { records: [], total: 0 }
 }
 
 /**
  * 获取资源详情
  */
 export async function getResourceDetail(id: number): Promise<Resource | null> {
-  const res = await request.get<any>(`/ecosystem/resources/${id}`)
-  if (res.code === 200 && res.data) {
-    return res.data
-  }
-  return null
+  const data = await request.get<Resource>(`/ecosystem/resources/${id}`)
+  return data || null
 }
 
 /**
@@ -106,41 +98,29 @@ export async function createResource(data: {
   projectId?: number
   tags?: string[]
 }): Promise<number> {
-  const res = await request.post<any>('/ecosystem/resources', data)
-  if (res.code === 200 && res.data) {
-    return res.data
-  }
-  throw new Error(res.message || '创建资源失败')
+  const result = await request.post<number>('/ecosystem/resources', data)
+  return result
 }
 
 /**
  * 点赞资源
  */
 export async function likeResource(id: number): Promise<void> {
-  const res = await request.post<any>(`/ecosystem/resources/${id}/like`)
-  if (res.code !== 200) {
-    throw new Error(res.message || '点赞失败')
-  }
+  await request.post<void>(`/ecosystem/resources/${id}/like`)
 }
 
 /**
  * 取消点赞资源
  */
 export async function unlikeResource(id: number): Promise<void> {
-  const res = await request.delete<any>(`/ecosystem/resources/${id}/like`)
-  if (res.code !== 200) {
-    throw new Error(res.message || '取消点赞失败')
-  }
+  await request.delete<void>(`/ecosystem/resources/${id}/like`)
 }
 
 /**
  * 删除资源
  */
 export async function deleteResource(id: number): Promise<void> {
-  const res = await request.delete<any>(`/ecosystem/resources/${id}`)
-  if (res.code !== 200) {
-    throw new Error(res.message || '删除资源失败')
-  }
+  await request.delete<void>(`/ecosystem/resources/${id}`)
 }
 
 /**
@@ -151,14 +131,11 @@ export async function getMoments(params: {
   size?: number
   type?: string
 }): Promise<{ records: Moment[]; total: number }> {
-  const res = await request.get<any>('/ecosystem/moments', { params })
-  if (res.code === 200 && res.data) {
-    return {
-      records: res.data.records || [],
-      total: res.data.total || 0
-    }
+  const data = await request.get<any>('/ecosystem/moments', { params })
+  return {
+    records: data?.records || [],
+    total: data?.total || 0
   }
-  return { records: [], total: 0 }
 }
 
 /**
@@ -169,39 +146,27 @@ export async function createMoment(data: {
   content: string
   relatedProjectId?: number
 }): Promise<number> {
-  const res = await request.post<any>('/ecosystem/moments', data)
-  if (res.code === 200 && res.data) {
-    return res.data
-  }
-  throw new Error(res.message || '创建动态失败')
+  const result = await request.post<number>('/ecosystem/moments', data)
+  return result
 }
 
 /**
  * 点赞动态
  */
 export async function likeMoment(id: number): Promise<void> {
-  const res = await request.post<any>(`/ecosystem/moments/${id}/like`)
-  if (res.code !== 200) {
-    throw new Error(res.message || '点赞失败')
-  }
+  await request.post<void>(`/ecosystem/moments/${id}/like`)
 }
 
 /**
  * 取消点赞动态
  */
 export async function unlikeMoment(id: number): Promise<void> {
-  const res = await request.delete<any>(`/ecosystem/moments/${id}/like`)
-  if (res.code !== 200) {
-    throw new Error(res.message || '取消点赞失败')
-  }
+  await request.delete<void>(`/ecosystem/moments/${id}/like`)
 }
 
 /**
  * 删除动态
  */
 export async function deleteMoment(id: number): Promise<void> {
-  const res = await request.delete<any>(`/ecosystem/moments/${id}`)
-  if (res.code !== 200) {
-    throw new Error(res.message || '删除动态失败')
-  }
+  await request.delete<void>(`/ecosystem/moments/${id}`)
 }

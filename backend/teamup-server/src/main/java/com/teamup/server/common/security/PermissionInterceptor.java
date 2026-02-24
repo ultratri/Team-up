@@ -2,7 +2,9 @@ package com.teamup.server.common.security;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.teamup.server.common.exception.BusinessException;
+import com.teamup.server.modules.team.entity.Team;
 import com.teamup.server.modules.team.entity.TeamMember;
+import com.teamup.server.modules.team.mapper.TeamMapper;
 import com.teamup.server.modules.team.mapper.TeamMemberMapper;
 import com.teamup.server.modules.user.security.UserContext;
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,6 +29,7 @@ import java.util.Map;
 public class PermissionInterceptor implements HandlerInterceptor {
 
     private final TeamMemberMapper teamMemberMapper;
+    private final TeamMapper teamMapper;
     private final CacheManager cacheManager;
 
     @Override
@@ -121,15 +124,22 @@ public class PermissionInterceptor implements HandlerInterceptor {
     }
 
     /**
-     * 验证用户是否为团队成员
+     * 验证用户是否为团队成员或导师
      */
     private boolean isTeamMember(Long teamId, Long userId) {
+        // 检查是否为团队成员
         QueryWrapper<TeamMember> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("team_id", teamId)
                     .eq("user_id", userId);
         
         Long count = teamMemberMapper.selectCount(queryWrapper);
-        return count != null && count > 0;
+        if (count != null && count > 0) {
+            return true;
+        }
+        
+        // 检查是否为团队导师
+        Team team = teamMapper.selectById(teamId);
+        return team != null && userId.equals(team.getMentorId());
     }
 
     /**

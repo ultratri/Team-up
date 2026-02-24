@@ -17,8 +17,8 @@ import com.teamup.server.modules.competition.vo.CompetitionStatsVO;
 import com.teamup.server.modules.competition.vo.CompetitionLeaderboardEntryVO;
 import com.teamup.server.modules.competition.mapper.TeamCompetitionScoreMapper;
 import com.teamup.server.modules.user.mapper.UserMapper;
-import com.teamup.server.modules.user.mapper.UserSkillMapper;
-import com.teamup.server.modules.user.entity.UserSkill;
+import com.teamup.server.modules.tag.service.UserTagService;
+import com.teamup.server.modules.tag.vo.UserSkillVO;
 import com.teamup.server.modules.user.security.UserContext;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -55,7 +55,7 @@ public class CompetitionController {
     private final TeamMemberMapper teamMemberMapper;
     private final TeamMapper teamMapper;
     private final AuditLogService auditLogService;
-    private final UserSkillMapper userSkillMapper;
+    private final UserTagService userTagService;
     private final TeamCompetitionScoreMapper teamCompetitionScoreMapper;
     private final RedisTemplate<String, Object> redisTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -135,10 +135,8 @@ public class CompetitionController {
         Long userId = UserContext.getCurrentUserId();
         Page<Competition> pageParam = new Page<>(page, size);
 
-        List<UserSkill> skills = userSkillMapper.selectList(
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<UserSkill>()
-                        .eq(UserSkill::getUserId, userId)
-        );
+        // 使用 UserTagService 获取用户技能
+        List<UserSkillVO> skills = userTagService.getUserSkills(userId);
 
         // 没技能时返回空（避免给不相关推荐）
         if (skills == null || skills.isEmpty()) {
@@ -153,9 +151,9 @@ public class CompetitionController {
 
         wrapper.and(w -> {
             boolean first = true;
-            for (UserSkill s : skills) {
-                if (s == null || !StringUtils.hasText(s.getSkillName())) continue;
-                String kw = s.getSkillName();
+            for (UserSkillVO s : skills) {
+                if (s == null || !StringUtils.hasText(s.getTagName())) continue;
+                String kw = s.getTagName();
                 if (first) {
                     w.like(Competition::getName, kw)
                             .or().like(Competition::getOrganizer, kw)

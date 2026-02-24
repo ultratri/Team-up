@@ -34,6 +34,17 @@ public class UserAvailabilityController {
     }
     
     /**
+     * 获取指定用户的组队意向
+     * @param userId 用户ID
+     * @return 用户可用性信息
+     */
+    @GetMapping("/{userId}")
+    public Result<UserAvailabilityVO> getUserAvailability(@PathVariable Long userId) {
+        UserAvailabilityVO vo = availabilityService.getUserAvailability(userId);
+        return Result.success(vo);
+    }
+    
+    /**
      * 更新当前用户的组队意向
      * @param request 组队意向请求
      * @return 操作结果

@@ -17,7 +17,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/tags")
 @RequiredArgsConstructor
-@PreAuthorize("isAuthenticated()")
 public class TagController {
     
     private final TagService tagService;
@@ -39,8 +38,15 @@ public class TagController {
      */
     @GetMapping("/skills")
     public Result<List<Tag>> getSkillTags() {
-        List<Tag> tags = tagService.getPopularTags("SKILL", 100);
-        return Result.success(tags);
+        try {
+            log.info("获取技能标签列表");
+            List<Tag> tags = tagService.getPopularTags("SKILL", 100);
+            log.info("成功获取 {} 个技能标签", tags.size());
+            return Result.success(tags);
+        } catch (Exception e) {
+            log.error("获取技能标签失败", e);
+            throw e;
+        }
     }
     
     /**
@@ -48,8 +54,15 @@ public class TagController {
      */
     @GetMapping("/interests")
     public Result<List<Tag>> getInterestTags() {
-        List<Tag> tags = tagService.getPopularTags("INTEREST", 100);
-        return Result.success(tags);
+        try {
+            log.info("获取兴趣标签列表");
+            List<Tag> tags = tagService.getPopularTags("INTEREST", 100);
+            log.info("成功获取 {} 个兴趣标签", tags.size());
+            return Result.success(tags);
+        } catch (Exception e) {
+            log.error("获取兴趣标签失败", e);
+            throw e;
+        }
     }
     
     /**
@@ -57,8 +70,15 @@ public class TagController {
      */
     @GetMapping("/personalities")
     public Result<List<Tag>> getPersonalityTags() {
-        List<Tag> tags = tagService.getPopularTags("PERSONALITY", 100);
-        return Result.success(tags);
+        try {
+            log.info("获取性格标签列表");
+            List<Tag> tags = tagService.getPopularTags("PERSONALITY", 100);
+            log.info("成功获取 {} 个性格标签", tags.size());
+            return Result.success(tags);
+        } catch (Exception e) {
+            log.error("获取性格标签失败", e);
+            throw e;
+        }
     }
     
     /**
@@ -66,7 +86,14 @@ public class TagController {
      */
     @GetMapping("/project-types")
     public Result<List<Tag>> getProjectTypeTags() {
-        List<Tag> tags = tagService.getPopularTags("PROJECT_TYPE", 100);
-        return Result.success(tags);
+        try {
+            log.info("获取项目类型标签列表");
+            List<Tag> tags = tagService.getPopularTags("PROJECT_TYPE", 100);
+            log.info("成功获取 {} 个项目类型标签", tags.size());
+            return Result.success(tags);
+        } catch (Exception e) {
+            log.error("获取项目类型标签失败", e);
+            throw e;
+        }
     }
 }

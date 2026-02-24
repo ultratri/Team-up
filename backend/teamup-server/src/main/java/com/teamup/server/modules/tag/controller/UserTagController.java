@@ -22,10 +22,18 @@ import java.util.List;
 @RestController
 @RequestMapping("/user-tags")
 @RequiredArgsConstructor
-@PreAuthorize("isAuthenticated()")
 public class UserTagController {
     
     private final UserTagService userTagService;
+    
+    /**
+     * 获取用户的所有标签
+     */
+    @GetMapping("/user/{userId}")
+    public Result<List<UserTagVO>> getUserAllTags(@PathVariable Long userId) {
+        List<UserTagVO> tags = userTagService.getUserAllTags(userId);
+        return Result.success(tags);
+    }
     
     /**
      * 获取用户的技能标签
@@ -40,6 +48,7 @@ public class UserTagController {
      * 添加用户技能标签
      */
     @PostMapping("/{userId}/skills")
+    @PreAuthorize("isAuthenticated()")
     public Result<Void> addUserSkill(
         @PathVariable Long userId,
         @Valid @RequestBody AddUserSkillDTO dto
@@ -52,6 +61,7 @@ public class UserTagController {
      * 删除用户技能标签
      */
     @DeleteMapping("/skills/{userTagId}")
+    @PreAuthorize("isAuthenticated()")
     public Result<Void> removeUserSkill(@PathVariable Long userTagId) {
         userTagService.removeUserSkill(userTagId);
         return Result.success();
@@ -73,6 +83,7 @@ public class UserTagController {
      * 添加用户标签（通用）
      */
     @PostMapping("/{userId}/tags")
+    @PreAuthorize("isAuthenticated()")
     public Result<Void> addUserTag(
         @PathVariable Long userId,
         @Valid @RequestBody AddUserTagDTO dto
@@ -85,6 +96,7 @@ public class UserTagController {
      * 删除用户标签（通用）
      */
     @DeleteMapping("/tags/{userTagId}")
+    @PreAuthorize("isAuthenticated()")
     public Result<Void> removeUserTag(@PathVariable Long userTagId) {
         userTagService.removeUserTag(userTagId);
         return Result.success();

@@ -4,7 +4,7 @@
       <header class="mc-header">
         <div class="mc-header__top">
           <el-avatar :size="60" :src="mentor.avatarUrl" class="mc-avatar">
-            {{ mentor.realName?.charAt(0) || '导' }}
+            {{ (mentor.realName || mentor.username || '导').charAt(0) }}
           </el-avatar>
 
           <div class="mc-ident">

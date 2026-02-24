@@ -29,6 +29,17 @@
         <RichTextEditor v-model="form.requirements" :min-height="'200px'" :max-length="5000" />
       </el-form-item>
 
+      <el-form-item label="技能需求">
+        <el-input
+          v-model="form.requiredSkills"
+          type="textarea"
+          :rows="3"
+          placeholder="请输入所需技能，用逗号分隔，例如：Java, Spring Boot, Vue.js"
+          maxlength="500"
+          show-word-limit
+        />
+      </el-form-item>
+
       <el-form-item label="团队规模">
         <el-slider v-model="form.teamSize" :min="2" :max="20" show-input />
       </el-form-item>
@@ -79,6 +90,7 @@ const form = reactive<{
   projectType: ProjectType
   description: string
   requirements: string
+  requiredSkills: string
   teamSize: number
   weeklyHours: number
   expectedDuration: number
@@ -88,6 +100,7 @@ const form = reactive<{
   projectType: 'COMPETITION',
   description: '',
   requirements: '',
+  requiredSkills: '',
   teamSize: 5,
   weeklyHours: 10,
   expectedDuration: 30,
@@ -102,6 +115,7 @@ watch(
     form.projectType = (p.projectType || 'COMPETITION') as ProjectType
     form.description = p.description || ''
     form.requirements = p.requirements || ''
+    form.requiredSkills = p.requiredSkills || ''
     form.teamSize = p.teamSize ?? 5
     form.weeklyHours = p.weeklyHours ?? 10
     form.expectedDuration = p.expectedDuration ?? 30
@@ -128,6 +142,7 @@ const handleSave = async () => {
       projectType: form.projectType,
       description: form.description,
       requirements: form.requirements,
+      requiredSkills: form.requiredSkills,
       teamSize: form.teamSize,
       weeklyHours: form.weeklyHours,
       expectedDuration: form.expectedDuration,

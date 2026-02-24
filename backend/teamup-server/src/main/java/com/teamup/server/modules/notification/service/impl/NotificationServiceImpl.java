@@ -29,7 +29,10 @@ public class NotificationServiceImpl implements NotificationService {
                                    String relatedType, Long relatedId) {
         Notification notification = new Notification();
         notification.setUserId(userId);
+        // type 字段用于存储通知类型（如 SYSTEM, APPLICATION_REVIEWED 等）
         notification.setType(type);
+        // notificationType 字段是数据库的枚举字段，需要映射到合法的枚举值
+        notification.setNotificationType(mapToNotificationType(type));
         notification.setTitle(title);
         notification.setContent(content);
         notification.setRelatedType(relatedType);
@@ -41,6 +44,34 @@ public class NotificationServiceImpl implements NotificationService {
         log.info("创建通知: userId={}, type={}, title={}", userId, type, title);
         
         // TODO: 通过 WebSocket 推送实时通知
+    }
+    
+    /**
+     * 将通知类型映射到数据库枚举值
+     */
+    private String mapToNotificationType(String type) {
+        if (type == null) {
+            return "OTHER";
+        }
+        
+        // 根据 type 映射到数据库的 notification_type 枚举
+        if (type.contains("APPLICATION") || type.contains("APPROVED") || type.contains("REJECTED")) {
+            return "APPLICATION_RESULT";
+        } else if (type.contains("TASK_ASSIGNED")) {
+            return "TASK_ASSIGNED";
+        } else if (type.contains("TASK") && type.contains("STATUS")) {
+            return "TASK_STATUS_CHANGE";
+        } else if (type.contains("DEADLINE") || type.contains("REMINDER")) {
+            return "DEADLINE_REMINDER";
+        } else if (type.contains("EVALUATION")) {
+            return "EVALUATION_REQUEST";
+        } else if (type.contains("ANNOUNCEMENT") || type.contains("SYSTEM")) {
+            return "SYSTEM_ANNOUNCEMENT";
+        } else if (type.contains("CHAT") || type.contains("MESSAGE")) {
+            return "CHAT_MESSAGE";
+        } else {
+            return "OTHER";
+        }
     }
 
     @Override

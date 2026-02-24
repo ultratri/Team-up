@@ -77,6 +77,12 @@ const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true, roles: ['MENTOR', 'PLATFORM_ADMIN'], title: '导师评分', transition: 'slide-fade' },
       },
       {
+        path: 'mentor/applications',
+        name: 'MentorApplications',
+        component: () => import('../views/mentor/MentorApplications.vue'),
+        meta: { requiresAuth: true, roles: ['MENTOR', 'PLATFORM_ADMIN'], title: '我的导师申请', transition: 'slide-fade' },
+      },
+      {
         path: 'team/join-applications/my',
         name: 'MyJoinApplications',
         component: () => import('../views/team/MyJoinApplications.vue'),
@@ -122,16 +128,28 @@ const routes: RouteRecordRaw[] = [
             meta: { requiresAuth: true, requiresTeamMember: true, title: '团队聊天', transition: 'slide-fade' }
           },
           {
-            path: 'members',
-            name: 'TeamMembers',
-            component: () => import('../views/team/MemberManager.vue'),
-            meta: { requiresAuth: true, requiresTeamMember: true, title: '成员管理', transition: 'slide-fade' }
-          },
-          {
             path: 'evaluation',
             name: 'TeamEvaluation',
             component: () => import('../views/team/Evaluation.vue'),
             meta: { requiresAuth: true, requiresTeamMember: true, title: '成员互评', transition: 'slide-fade' }
+          },
+          {
+            path: 'sprints',
+            name: 'TeamSprints',
+            component: () => import('../views/team/SprintManage.vue'),
+            meta: { requiresAuth: true, requiresTeamMember: true, title: 'Sprint管理', transition: 'slide-fade' }
+          },
+          {
+            path: 'standup',
+            name: 'TeamStandup',
+            component: () => import('../views/team/DailyStandup.vue'),
+            meta: { requiresAuth: true, requiresTeamMember: true, title: '每日站会', transition: 'slide-fade' }
+          },
+          {
+            path: 'settings',
+            name: 'TeamSettings',
+            component: () => import('../views/team/TeamSettings.vue'),
+            meta: { requiresAuth: true, requiresTeamMember: true, title: '团队设置', transition: 'slide-fade' }
           }
         ]
       },
@@ -140,21 +158,12 @@ const routes: RouteRecordRaw[] = [
         name: 'Profile',
         component: () => import('../views/profile/ProfileView.vue'),
         meta: { requiresAuth: true, transition: 'slide-fade' },
-        beforeEnter: (to, from, next) => {
-          const authStore = useAuthStore()
-          // 管理员重定向到管理员专用页面
-          if (authStore.hasRole(['PLATFORM_ADMIN'])) {
-            next({ name: 'AdminProfile', replace: true })
-          } else {
-            next()
-          }
-        }
       },
       {
-        path: 'admin/profile',
-        name: 'AdminProfile',
-        component: () => import('../views/admin/AdminProfile.vue'),
-        meta: { requiresAuth: true, roles: ['PLATFORM_ADMIN'], title: '账户管理', transition: 'slide-fade' },
+        path: 'account/settings',
+        name: 'AccountSettings',
+        component: () => import('../views/profile/AccountSettings.vue'),
+        meta: { requiresAuth: true, title: '账户设置', transition: 'slide-fade' },
       },
       {
         path: 'profile/edit',
@@ -264,6 +273,12 @@ const routes: RouteRecordRaw[] = [
         name: 'DataExport',
         component: () => import('../views/admin/DataExport.vue'),
         meta: { requiresAuth: true, roles: ['PLATFORM_ADMIN', 'DEPT_ADMIN'], title: '数据导出', transition: 'slide-fade' },
+      },
+      {
+        path: 'admin/department-major',
+        name: 'DepartmentMajorManage',
+        component: () => import('../views/admin/DepartmentMajorManage.vue'),
+        meta: { requiresAuth: true, roles: ['PLATFORM_ADMIN'], title: '院系专业管理', transition: 'slide-fade' },
       },
       {
         path: 'admin/newbie',
@@ -403,7 +418,7 @@ router.beforeEach(async (to, from, next) => {
     'SkillManagement',
     'ProjectHistory',
     'NeedConfirm',
-    'AdminProfile',
+    'AccountSettings',
     'MentorSystemApplications',
     'MentorSystemManage',
     'MentorPlaza',

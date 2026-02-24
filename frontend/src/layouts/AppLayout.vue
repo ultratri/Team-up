@@ -20,7 +20,6 @@ onMounted(() => {
       () => import('../views/team/TeamList.vue'),
       () => import('../views/team/TeamSpace.vue'),
       () => import('../views/team/TaskBoard.vue'),
-      () => import('../views/team/MemberManager.vue'),
       () => import('../views/team/FileShare.vue'),
       () => import('../views/team/Chat.vue'),
       () => import('../views/profile/ProfileView.vue'),

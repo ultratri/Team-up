@@ -14,9 +14,9 @@ import com.teamup.server.modules.project.vo.ApplicationVO;
 import com.teamup.server.modules.user.entity.User;
 import com.teamup.server.modules.user.mapper.UserMapper;
 import com.teamup.server.modules.user.mapper.UserProfileMapper;
-import com.teamup.server.modules.user.mapper.UserSkillMapper;
 import com.teamup.server.modules.user.entity.UserProfile;
-import com.teamup.server.modules.user.entity.UserSkill;
+import com.teamup.server.modules.tag.service.UserTagService;
+import com.teamup.server.modules.tag.vo.UserSkillVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -38,7 +38,7 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final ProjectMapper projectMapper;
     private final UserMapper userMapper;
     private final UserProfileMapper userProfileMapper;
-    private final UserSkillMapper userSkillMapper;
+    private final UserTagService userTagService;
     
     private static final String STATUS_PENDING = "PENDING";
 
@@ -257,12 +257,11 @@ public class ApplicationServiceImpl implements ApplicationService {
             vo.setApplicantAvatar(profile.getAvatarUrl());
         }
 
-        List<UserSkill> skills = userSkillMapper.selectList(
-                new LambdaQueryWrapper<UserSkill>().eq(UserSkill::getUserId, application.getApplicantId())
-        );
+        // 使用 UserTagService 获取用户技能
+        List<UserSkillVO> skills = userTagService.getUserSkills(application.getApplicantId());
         if (skills != null && !skills.isEmpty()) {
             vo.setApplicantSkills(skills.stream()
-                    .map(UserSkill::getSkillName)
+                    .map(UserSkillVO::getTagName)
                     .toList());
         }
         

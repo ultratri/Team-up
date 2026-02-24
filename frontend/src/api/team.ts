@@ -131,7 +131,7 @@ export async function reviewTeamJoinApplication(
   approved: boolean,
   comment?: string
 ) {
-  return request.post(`/api/teams/join-applications/${applicationId}/review`, null, {
+  return request.post(`/teams/join-applications/${applicationId}/review`, null, {
     params: { approved, comment }
   }) as any
 }
@@ -410,26 +410,29 @@ export async function getMyTeamJoinApplications(params?: {
   size?: number
   status?: string
 }): Promise<{ records: TeamJoinApplication[]; total: number; page: number; size: number }> {
-  const res = await request.get<ApiResult<PageResult<TeamJoinApplication>>>('/api/teams/join-applications/my', { params })
-  if (res.code === 200 && res.data) {
-    return {
-      records: (res.data as any).records || res.data.records || [],
-      total: (res.data as any).total || res.data.total || 0,
-      page: (res.data as any).current || params?.page || 1,
-      size: (res.data as any).size || params?.size || 10
+  try {
+    const res = await request.get<PageResult<TeamJoinApplication>>('/teams/join-applications/my', { params })
+    // request拦截器已经解包了数据
+    if (res && typeof res === 'object') {
+      return {
+        records: (res as any).records || [],
+        total: (res as any).total || 0,
+        page: (res as any).current || params?.page || 1,
+        size: (res as any).size || params?.size || 10
+      }
     }
+    return { records: [], total: 0, page: 1, size: 10 }
+  } catch (error) {
+    console.error('Failed to get my team join applications:', error)
+    return { records: [], total: 0, page: 1, size: 10 }
   }
-  return { records: [], total: 0, page: 1, size: 10 }
 }
 
 /**
  * 撤回入队申请
  */
 export async function withdrawTeamJoinApplication(applicationId: number): Promise<void> {
-  const res = await request.post<ApiResult<void>>(`/api/teams/join-applications/${applicationId}/withdraw`)
-  if (res.code !== 200) {
-    throw new Error(res.message || '撤回申请失败')
-  }
+  await request.post<void>(`/teams/join-applications/${applicationId}/withdraw`)
 }
 
 // ==================== 管理员团队管理 API ====================
@@ -444,21 +447,21 @@ export function getAdminTeamList(params: {
   isActive?: boolean
   keyword?: string
 }): Promise<PageResult<any>> {
-  return request.get('/api/admin/teams', { params }).then((res: any) => res.data || res)
+  return request.get('/admin/teams', { params }).then((res: any) => res.data || res)
 }
 
 /**
  * 管理员获取团队详情
  */
 export function getAdminTeamDetail(teamId: number): Promise<any> {
-  return request.get(`/api/admin/teams/${teamId}`).then((res: any) => res.data || res)
+  return request.get(`/admin/teams/${teamId}`).then((res: any) => res.data || res)
 }
 
 /**
  * 管理员解散团队
  */
 export function dissolveTeam(teamId: number, reason: string): Promise<void> {
-  return request.post(`/api/admin/teams/${teamId}/dissolve`, { reason })
+  return request.post(`/admin/teams/${teamId}/dissolve`, { reason })
 }
 
 /**
@@ -469,7 +472,7 @@ export function adminRemoveTeamMember(
   userId: number,
   reason?: string
 ): Promise<void> {
-  return request.delete(`/api/admin/teams/${teamId}/members/${userId}`, {
+  return request.delete(`/admin/teams/${teamId}/members/${userId}`, {
     params: { reason }
   })
 }
@@ -478,7 +481,7 @@ export function adminRemoveTeamMember(
  * 管理员批量解散团队
  */
 export function batchDissolveTeams(teamIds: number[]): Promise<void> {
-  return request.post('/api/admin/teams/batch-dissolve', teamIds)
+  return request.post('/admin/teams/batch-dissolve', teamIds)
 }
 
 /**
@@ -490,5 +493,5 @@ export function getAdminTeamStatistics(): Promise<{
   averageMemberCount: number
   totalProjects: number
 }> {
-  return request.get('/api/admin/teams/statistics').then((res: any) => res.data || res)
+  return request.get('/admin/teams/statistics').then((res: any) => res.data || res)
 }

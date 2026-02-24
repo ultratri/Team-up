@@ -74,7 +74,8 @@ const initChart = () => {
       // 进一步缩小半径并调整中心，给文字留足边距
       radius: '55%',
       center: ['50%', '52%'],
-      splitNumber: 4,
+      splitNumber: 5, // 改为 5 避免 alignTicks 警告
+      shape: 'polygon',
       axisName: {
         color: textColor, // 使用主文字颜色确保清晰
         fontSize: 13,

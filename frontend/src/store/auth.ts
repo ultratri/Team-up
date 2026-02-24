@@ -3,6 +3,12 @@ import { ref, computed } from 'vue'
 import type { User, UserRole } from '../types/user'
 
 export const useAuthStore = defineStore('auth', () => {
+  // 清理旧的全局团队记忆键（安全修复 - 在初始化时立即执行）
+  if (localStorage.getItem('lastVisitedTeamId')) {
+    console.log('🧹 [AuthStore初始化] 清理旧的全局团队记忆键')
+    localStorage.removeItem('lastVisitedTeamId')
+  }
+  
   // 从 localStorage 恢复用户与角色
   let initialUser: User | null = null
   let initialRoles: UserRole[] = []
@@ -51,9 +57,20 @@ export const useAuthStore = defineStore('auth', () => {
     sessionStorage.removeItem('user')
     const storage = remember ? localStorage : sessionStorage
     storage.setItem('user', JSON.stringify(newUser))
+    
+    // 清理旧的全局团队记忆键（安全修复）
+    if (localStorage.getItem('lastVisitedTeamId')) {
+      console.log('🧹 清理旧的全局团队记忆键')
+      localStorage.removeItem('lastVisitedTeamId')
+    }
   }
 
   function logout() {
+    // 清理当前用户的团队记忆
+    if (user.value?.id) {
+      localStorage.removeItem(`lastVisitedTeamId_${user.value.id}`)
+    }
+    
     // 立即清除状态，不等待异步操作
     user.value = null
     token.value = null

@@ -59,4 +59,24 @@ public interface TeamService extends IService<Team> {
      * 获取管理员团队统计信息
      */
     Map<String, Object> getAdminTeamStatistics();
+    
+    /**
+     * 获取团队关联的比赛列表
+     */
+    List<Map<String, Object>> getTeamCompetitions(Long teamId);
+    
+    /**
+     * 添加团队关联比赛
+     */
+    void addTeamCompetition(Long teamId, Long competitionId);
+    
+    /**
+     * 移除团队关联比赛
+     */
+    void removeTeamCompetition(Long teamId, Long competitionId);
+    
+    /**
+     * 解散团队（项目完成后）
+     */
+    void dissolveTeam(Long teamId, Long userId);
 }

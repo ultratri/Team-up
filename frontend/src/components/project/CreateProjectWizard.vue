@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { Project, ProjectType } from '@/types/project'
 import { createProject, publishProject } from '@/api/project'
+import { getUserTeams } from '@/api/team'
+import { useAuthStore } from '@/store/auth'
 import RichTextEditor from '@/components/common/RichTextEditor.vue'
+import type { Team } from '@/types/team'
 
 const props = defineProps<{
   modelValue: boolean
@@ -21,8 +24,10 @@ const visible = computed({
 
 const activeStep = ref(0)
 const loading = ref(false)
+const authStore = useAuthStore()
+const myTeams = ref<Team[]>([])
 
-const form = reactive<Partial<Project>>({
+const form = reactive<Partial<Project> & { teamMode?: string; existingTeamId?: number; teamName?: string }>({
   title: '',
   projectType: 'COMPETITION' as ProjectType,
   description: '',
@@ -31,13 +36,17 @@ const form = reactive<Partial<Project>>({
   weeklyHours: 10,
   expectedDuration: 30,
   roles: [],
-  techStack: []
+  techStack: [],
+  teamMode: 'CREATE_NEW', // 默认创建新团队
+  existingTeamId: undefined,
+  teamName: ''
 })
 
 const steps = [
   { title: '基本信息', icon: 'Edit' },
   { title: '技能需求', icon: 'Connection' },
-  { title: '团队设置', icon: 'User' }
+  { title: '团队设置', icon: 'User' },
+  { title: '团队模式', icon: 'UserFilled' }
 ]
 
 // Temporary tag inputs
@@ -73,10 +82,19 @@ const handleNext = () => {
       return
     }
   }
-  if (activeStep.value < 2) {
-    activeStep.value++
-  } else {
+  if (activeStep.value === 3) {
+    // 最后一步，验证团队模式
+    if (form.teamMode === 'USE_EXISTING' && !form.existingTeamId) {
+      ElMessage.warning('请选择一个已有团队')
+      return
+    }
+    if (form.teamMode === 'CREATE_NEW' && !form.teamName) {
+      ElMessage.warning('请输入团队名称')
+      return
+    }
     handleSubmit()
+  } else if (activeStep.value < 3) {
+    activeStep.value++
   }
 }
 
@@ -87,7 +105,26 @@ const handlePrev = () => {
 const handleSubmit = async () => {
   loading.value = true
   try {
-    const created = await createProject(form)
+    // 构建提交数据
+    const submitData: any = {
+      title: form.title,
+      projectType: form.projectType,
+      description: form.description,
+      requirements: form.requirements,
+      teamSize: form.teamSize,
+      weeklyHours: form.weeklyHours,
+      expectedDuration: form.expectedDuration,
+      teamMode: form.teamMode
+    }
+
+    // 根据团队模式添加相应字段
+    if (form.teamMode === 'USE_EXISTING') {
+      submitData.existingTeamId = form.existingTeamId
+    } else {
+      submitData.teamName = form.teamName
+    }
+
+    const created = await createProject(submitData)
 
     const projectId = (created as any)?.id
 
@@ -127,7 +164,10 @@ const handleSubmit = async () => {
       weeklyHours: 10,
       expectedDuration: 30,
       roles: [],
-      techStack: []
+      techStack: [],
+      teamMode: 'CREATE_NEW',
+      existingTeamId: undefined,
+      teamName: ''
     })
   } catch (error) {
     console.error(error)
@@ -135,6 +175,29 @@ const handleSubmit = async () => {
     loading.value = false
   }
 }
+
+// 加载用户的团队列表
+const loadMyTeams = async () => {
+  try {
+    const userId = authStore.user?.id
+    if (!userId) return
+    
+    const result = await getUserTeams(userId, {}, false)
+    if (Array.isArray(result)) {
+      // 只显示活跃的团队
+      myTeams.value = result.filter((t: Team) => t.status === 'ACTIVE')
+    } else if (result && 'records' in result) {
+      myTeams.value = result.records.filter((t: Team) => t.status === 'ACTIVE')
+    }
+  } catch (error) {
+    console.error('加载团队列表失败:', error)
+    myTeams.value = []
+  }
+}
+
+onMounted(() => {
+  loadMyTeams()
+})
 </script>
 
 <template>
@@ -258,6 +321,59 @@ const handleSubmit = async () => {
                 <el-input-number v-model="form.expectedDuration" :min="7" :max="365" />
               </div>
             </div>
+
+            <div class="step-panel" v-if="activeStep === 3">
+              <div class="form-group">
+                <label>团队模式</label>
+                <el-radio-group v-model="form.teamMode" size="large">
+                  <el-radio label="CREATE_NEW">创建新团队</el-radio>
+                  <el-radio label="USE_EXISTING" :disabled="myTeams.length === 0">使用已有团队</el-radio>
+                </el-radio-group>
+                <p v-if="myTeams.length === 0" style="color: var(--el-color-info); font-size: 12px; margin-top: 8px;">
+                  你还没有可用的团队，将自动创建新团队
+                </p>
+              </div>
+
+              <div v-if="form.teamMode === 'CREATE_NEW'" class="form-group">
+                <label>团队名称</label>
+                <el-input 
+                  v-model="form.teamName" 
+                  placeholder="为你的团队起个名字" 
+                  size="large"
+                  maxlength="50"
+                  show-word-limit
+                />
+                <p style="color: var(--el-color-info); font-size: 12px; margin-top: 8px;">
+                  项目招募完成后，将自动创建团队
+                </p>
+              </div>
+
+              <div v-if="form.teamMode === 'USE_EXISTING'" class="form-group">
+                <label>选择团队</label>
+                <el-select 
+                  v-model="form.existingTeamId" 
+                  placeholder="选择一个已有团队" 
+                  size="large"
+                  style="width: 100%"
+                >
+                  <el-option
+                    v-for="team in myTeams"
+                    :key="team.id"
+                    :label="team.teamName"
+                    :value="team.id"
+                  >
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                      <span>{{ team.teamName }}</span>
+                      <el-tag v-if="team.teamNature === 'LONG_TERM'" type="success" size="small">长期团队</el-tag>
+                      <el-tag v-else type="info" size="small">临时团队</el-tag>
+                    </div>
+                  </el-option>
+                </el-select>
+                <p style="color: var(--el-color-info); font-size: 12px; margin-top: 8px;">
+                  选择一个已有团队来执行此项目
+                </p>
+              </div>
+            </div>
           </div>
         </transition>
       </div>
@@ -267,7 +383,7 @@ const handleSubmit = async () => {
       <div class="wizard-footer">
         <el-button v-if="activeStep > 0" @click="handlePrev">上一步</el-button>
         <el-button type="primary" @click="handleNext" :loading="loading">
-          {{ activeStep === 2 ? '完成创建' : '下一步' }}
+          {{ activeStep === 3 ? '完成创建' : '下一步' }}
         </el-button>
       </div>
     </template>

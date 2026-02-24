@@ -128,6 +128,12 @@ public class MentorRelationshipController {
                 vo.setProjectExperience(profile.getProjectExperience());
                 vo.setGuidanceExperience(profile.getGuidanceExperience());
                 
+                // 设置联系方式
+                vo.setWechat(profile.getWechat());
+                vo.setQq(profile.getQq());
+                vo.setEmail(user.getEmail());
+                vo.setPhone(user.getPhone());
+                
                 // 设置绩效数据
                 MentorPerformance performance = performanceMap.get(user.getId());
                 if (performance != null) {

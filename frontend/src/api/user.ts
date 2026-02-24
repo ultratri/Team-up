@@ -135,6 +135,21 @@ export async function getUserById(id: number) {
 }
 
 /**
+ * 根据学号获取用户信息
+ */
+export async function getUserByUserCode(userCode: string) {
+  const res = await request.get<any>(`/users/user-code/${userCode}`)
+  if (res && typeof res === 'object') {
+    if ('code' in res) {
+      if (res.code === 200 && res.data) return res.data
+      throw new Error(res.message || '获取用户信息失败')
+    }
+    return res
+  }
+  throw new Error('获取用户信息失败')
+}
+
+/**
  * 搜索用户（用于选择导师/成员等）
  * 兼容后端返回：
  * - ApiResult<{ records: User[] }>
@@ -209,6 +224,21 @@ export async function getUserAvailability(): Promise<UserAvailabilityVO> {
 }
 
 /**
+ * 获取指定用户的组队意向
+ */
+export async function getUserAvailabilityById(userId: number): Promise<UserAvailabilityVO> {
+  const res = await request.get<any>(`/user/availability/${userId}`)
+  if (res && typeof res === 'object') {
+    if ('code' in res) {
+      if (res.code === 200 && res.data) return res.data
+      throw new Error(res.message || '获取用户组队意向失败')
+    }
+    return res
+  }
+  throw new Error('获取用户组队意向失败')
+}
+
+/**
  * 更新当前用户的组队意向
  */
 export async function updateUserAvailability(data: UserAvailabilityRequest): Promise<void> {
@@ -278,4 +308,34 @@ export async function getTalentList(params?: TalentListQuery): Promise<PageResul
     }
   }
   return { records: [], total: 0, current: params?.page || 1, size: params?.size || 12 }
+}
+
+/**
+ * 获取用户个人资料
+ */
+export async function getUserProfile(userId: number): Promise<any> {
+  const res = await request.get<any>(`/profile/${userId}`)
+  if (res && typeof res === 'object') {
+    if ('code' in res) {
+      if (res.code === 200 && res.data) return res.data
+      throw new Error(res.message || '获取用户资料失败')
+    }
+    return res
+  }
+  throw new Error('获取用户资料失败')
+}
+
+/**
+ * 获取用户技能列表
+ */
+export async function getUserSkills(userId: number): Promise<any[]> {
+  const res = await request.get<any>(`/profile/${userId}/skills`)
+  if (res && typeof res === 'object') {
+    if ('code' in res) {
+      if (res.code === 200 && res.data) return Array.isArray(res.data) ? res.data : []
+      return []
+    }
+    if (Array.isArray(res)) return res
+  }
+  return []
 }

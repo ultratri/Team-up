@@ -11,8 +11,10 @@ import com.teamup.server.modules.file.entity.FileEntity;
 import com.teamup.server.modules.file.mapper.FileMapper;
 import com.teamup.server.modules.file.service.FileService;
 import com.teamup.server.modules.file.vo.FileVO;
+import com.teamup.server.modules.team.entity.Team;
 import com.teamup.server.modules.team.entity.TeamMember;
 import com.teamup.server.modules.team.mapper.TeamMemberMapper;
+import com.teamup.server.modules.team.service.TeamService;
 import com.teamup.server.modules.user.security.UserContext;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +37,7 @@ public class FileController {
     
     private final FileService fileService;
     private final TeamMemberMapper teamMemberMapper;
+    private final TeamService teamService;
     private final FileMapper fileMapper;
     private final ActivityService activityService;
     private final TeamActivityMapper teamActivityMapper;
@@ -52,20 +55,32 @@ public class FileController {
             @PathVariable Long teamId,
             @RequestParam(required = false) Long folderId) {
         
-        // 验证用户是否为团队成员
+        // 验证用户是否为团队成员或导师
         Long currentUserId = UserContext.getCurrentUserId();
-        QueryWrapper<TeamMember> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("team_id", teamId)
-                   .eq("user_id", currentUserId);
-        
-        TeamMember member = teamMemberMapper.selectOne(queryWrapper);
-        if (member == null) {
+        if (!isTeamMember(teamId, currentUserId)) {
             return Result.error(403, "无权限访问该团队文件");
         }
         
         // 获取文件列表
         List<FileVO> files = fileService.getFileList(teamId, folderId);
         return Result.success(files);
+    }
+    
+    /**
+     * 检查用户是否为团队成员或导师
+     */
+    private boolean isTeamMember(Long teamId, Long userId) {
+        // 检查是否为团队成员
+        QueryWrapper<TeamMember> wrapper = new QueryWrapper<>();
+        wrapper.eq("team_id", teamId);
+        wrapper.eq("user_id", userId);
+        if (teamMemberMapper.selectCount(wrapper) > 0) {
+            return true;
+        }
+        
+        // 检查是否为团队导师
+        Team team = teamService.getTeamById(teamId);
+        return team != null && userId.equals(team.getMentorId());
     }
     
     /**

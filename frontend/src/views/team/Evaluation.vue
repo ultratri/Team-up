@@ -18,7 +18,9 @@
       <div v-if="teamMembers.length > 0" class="member-list">
         <div v-for="member in teamMembers" :key="member.userId" class="member-item">
           <div class="member-info">
-            <el-avatar :size="50" :src="member.avatar">{{ member.username }}</el-avatar>
+            <el-avatar :size="50" :src="member.avatar">
+              {{ (member.username || '成员').charAt(0) }}
+            </el-avatar>
             <div class="member-detail">
               <h4>{{ member.username }}</h4>
               <span class="role">{{ member.role }}</span>

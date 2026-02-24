@@ -110,13 +110,20 @@ public class EvaluationController {
     }
     
     /**
-     * 检查用户是否为团队成员
+     * 检查用户是否为团队成员或导师
      */
     private boolean isTeamMember(Long teamId, Long userId) {
+        // 检查是否为团队成员
         com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<TeamMember> wrapper = 
             new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
         wrapper.eq("team_id", teamId);
         wrapper.eq("user_id", userId);
-        return teamMemberMapper.selectCount(wrapper) > 0;
+        if (teamMemberMapper.selectCount(wrapper) > 0) {
+            return true;
+        }
+        
+        // 检查是否为团队导师
+        Team team = teamService.getTeamById(teamId);
+        return team != null && userId.equals(team.getMentorId());
     }
 }

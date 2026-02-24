@@ -40,19 +40,25 @@ public class ProjectServiceImpl implements ProjectService {
     private final StringRedisTemplate redisTemplate;
     private final com.teamup.server.modules.notification.service.NotificationService notificationService;
     private final com.teamup.server.modules.user.service.UserService userService;
+    private final com.teamup.server.modules.team.service.TeamService teamService;
+    private final com.teamup.server.modules.team.service.TeamProjectService teamProjectService;
     
     public ProjectServiceImpl(ProjectMapper projectMapper, 
                               ProjectApplicationMapper applicationMapper,
                               ProjectRecommendationMapper recommendationMapper,
                               StringRedisTemplate redisTemplate,
                               com.teamup.server.modules.notification.service.NotificationService notificationService,
-                              com.teamup.server.modules.user.service.UserService userService) {
+                              com.teamup.server.modules.user.service.UserService userService,
+                              @org.springframework.context.annotation.Lazy com.teamup.server.modules.team.service.TeamService teamService,
+                              com.teamup.server.modules.team.service.TeamProjectService teamProjectService) {
         this.projectMapper = projectMapper;
         this.applicationMapper = applicationMapper;
         this.recommendationMapper = recommendationMapper;
         this.redisTemplate = redisTemplate;
         this.notificationService = notificationService;
         this.userService = userService;
+        this.teamService = teamService;
+        this.teamProjectService = teamProjectService;
     }
     
     private static final String STATUS_PENDING = "PENDING";
@@ -63,7 +69,40 @@ public class ProjectServiceImpl implements ProjectService {
         Page<Project> pageParam = new Page<>(page, size);
         LambdaQueryWrapper<Project> wrapper = new LambdaQueryWrapper<>();
         
-        // ✅ 关键修复：只返回当前用户创建的项目
+        // 如果没有指定状态，默认排除草稿状态（项目大厅场景）
+        // 如果指定了状态，则按指定状态过滤（我的项目场景）
+        if (StringUtils.hasText(status)) {
+            wrapper.eq(Project::getStatus, status);
+        } else {
+            // 项目大厅：排除草稿状态，只显示公开的项目
+            wrapper.ne(Project::getStatus, ProjectStatus.DRAFT.name());
+        }
+        
+        // 类型筛选
+        if (StringUtils.hasText(type)) {
+            wrapper.eq(Project::getProjectType, type);
+        }
+        
+        // 关键词搜索
+        if (StringUtils.hasText(keyword)) {
+            wrapper.and(w -> w.like(Project::getTitle, keyword)
+                             .or()
+                             .like(Project::getDescription, keyword));
+        }
+        
+        // 按创建时间倒序
+        wrapper.orderByDesc(Project::getCreatedAt);
+        
+        return projectMapper.selectPage(pageParam, wrapper);
+    }
+
+    @Override
+    public Page<Project> getMyProjectList(int page, int size, String type, String status, String keyword, Long userId) {
+        // 我的项目：只返回当前用户创建的项目
+        Page<Project> pageParam = new Page<>(page, size);
+        LambdaQueryWrapper<Project> wrapper = new LambdaQueryWrapper<>();
+        
+        // 只返回当前用户创建的项目
         if (userId != null) {
             wrapper.eq(Project::getCreatorId, userId);
         }
@@ -78,7 +117,7 @@ public class ProjectServiceImpl implements ProjectService {
             wrapper.eq(Project::getStatus, status);
         }
         
-        // 关键词搜索（可选，如果需要的话）
+        // 关键词搜索
         if (StringUtils.hasText(keyword)) {
             wrapper.and(w -> w.like(Project::getTitle, keyword)
                              .or()
@@ -95,12 +134,51 @@ public class ProjectServiceImpl implements ProjectService {
     public Project getProjectById(Long id) {
         Project project = projectMapper.selectById(id);
         if (project != null) {
-            // 增加浏览次数
-            project.setViews(project.getViews() + 1);
-            projectMapper.updateById(project);
-            // 浏览次数变更较频繁，暂不同步 ES，或者采用异步批量同步
+            // 获取创建者用户名
+            try {
+                com.teamup.server.modules.user.entity.User creator = userService.getUserById(project.getCreatorId());
+                if (creator != null) {
+                    project.setCreatorName(creator.getUsername());
+                }
+            } catch (Exception e) {
+                log.error("获取项目创建者信息失败", e);
+            }
         }
         return project;
+    }
+    
+    /**
+     * 增加项目浏览次数（带防刷机制）
+     * 同一用户 24 小时内只计数一次
+     */
+    public void incrementProjectViews(Long projectId, Long userId, String ipAddress) {
+        try {
+            // 构建 Redis key：project_view:{projectId}:{userId或IP}
+            String viewKey = "project_view:" + projectId + ":" + 
+                           (userId != null ? "user_" + userId : "ip_" + ipAddress);
+            
+            // 检查是否已经浏览过（24小时内）
+            Boolean hasViewed = redisTemplate.hasKey(viewKey);
+            
+            if (hasViewed == null || !hasViewed) {
+                // 增加浏览次数
+                Project project = projectMapper.selectById(projectId);
+                if (project != null) {
+                    project.setViews(project.getViews() + 1);
+                    projectMapper.updateById(project);
+                    
+                    // 设置 Redis 标记，24 小时过期
+                    redisTemplate.opsForValue().set(viewKey, "1", 24, java.util.concurrent.TimeUnit.HOURS);
+                    
+                    log.debug("项目 {} 浏览次数 +1，当前浏览次数：{}", projectId, project.getViews());
+                }
+            } else {
+                log.debug("项目 {} 在 24 小时内已被该用户/IP 浏览过，不重复计数", projectId);
+            }
+        } catch (Exception e) {
+            // 防刷机制失败不影响主流程
+            log.error("增加项目浏览次数失败", e);
+        }
     }
 
     @Override
@@ -108,14 +186,41 @@ public class ProjectServiceImpl implements ProjectService {
     public Project createProject(Project project, Long userId) {
         project.setCreatorId(userId);
         project.setStatus(ProjectStatus.DRAFT.name());  // 默认草稿状态
-        project.setCurrentMembers(0);
         project.setIsRecommended(false);
         project.setViews(0);
         project.setCreatedAt(LocalDateTime.now());
         project.setUpdatedAt(LocalDateTime.now());
         
+        // 设置默认团队模式
+        if (project.getTeamMode() == null) {
+            project.setTeamMode("CREATE_NEW");
+        }
+        
+        // 如果使用已有团队，设置团队ID并同步成员数量
+        if ("USE_EXISTING".equals(project.getTeamMode()) && project.getTeamId() != null) {
+            try {
+                // 获取团队成员数量
+                List<com.teamup.server.modules.team.entity.TeamMember> members = 
+                    teamService.getTeamMembersByTeamId(project.getTeamId());
+                project.setCurrentMembers(members != null ? members.size() : 0);
+            } catch (Exception e) {
+                log.error("获取团队成员数量失败", e);
+                project.setCurrentMembers(0);
+            }
+        } else {
+            project.setCurrentMembers(0);
+        }
+        
         projectMapper.insert(project);
         
+        // 如果使用已有团队，创建团队-项目关联
+        if ("USE_EXISTING".equals(project.getTeamMode()) && project.getTeamId() != null) {
+            try {
+                teamProjectService.associateTeamWithProject(project.getTeamId(), project.getId());
+            } catch (Exception e) {
+                log.error("创建团队-项目关联失败", e);
+            }
+        }
         
         return project;
     }
@@ -175,6 +280,33 @@ public class ProjectServiceImpl implements ProjectService {
         
         if (!ProjectStatus.DRAFT.name().equals(project.getStatus())) {
             throw new BusinessException("只能发布草稿状态的项目");
+        }
+        
+        // 如果是创建新团队模式，在发布时创建团队
+        if ("CREATE_NEW".equals(project.getTeamMode()) && project.getTeamId() == null) {
+            try {
+                // 使用 TeamService 创建团队（会自动添加创建者为队长）
+                com.teamup.server.modules.team.dto.TeamCreateRequest teamRequest = 
+                    new com.teamup.server.modules.team.dto.TeamCreateRequest();
+                teamRequest.setTeamName(project.getTitle() + " 团队");
+                teamRequest.setLeaderId(userId);
+                teamRequest.setType("PROJECT");  // 项目类型团队
+                teamRequest.setProjectId(id);
+                
+                com.teamup.server.modules.team.entity.Team team = teamService.createTeam(teamRequest);
+                
+                // 更新项目的团队ID和成员数
+                project.setTeamId(team.getId());
+                project.setCurrentMembers(1);
+                
+                // 创建团队-项目关联
+                teamProjectService.associateTeamWithProject(team.getId(), id);
+                
+                log.info("项目发布时自动创建团队：projectId={}, teamId={}", id, team.getId());
+            } catch (Exception e) {
+                log.error("创建项目团队失败", e);
+                throw new BusinessException("创建项目团队失败：" + e.getMessage());
+            }
         }
         
         project.setStatus(ProjectStatus.RECRUITING.name());
@@ -394,5 +526,79 @@ public class ProjectServiceImpl implements ProjectService {
         
         return recommendationMapper.selectRecommendationsWithUserInfo(projectId);
     }
+    
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void completeProject(Long projectId, Long userId, String teamAction, String summary) {
+        Project project = projectMapper.selectById(projectId);
+        if (project == null) {
+            throw new BusinessException("项目不存在");
+        }
+        
+        if (!project.getCreatorId().equals(userId)) {
+            throw new BusinessException(ApiErrorCode.FORBIDDEN, "无权完成此项目");
+        }
+        
+        // 更新项目状态为已完成
+        project.setStatus(ProjectStatus.COMPLETED.name());
+        project.setUpdatedAt(LocalDateTime.now());
+        projectMapper.updateById(project);
+        
+        // 处理团队
+        if (project.getTeamId() != null) {
+            // 更新 team_projects 表中的状态
+            teamProjectService.completeProject(project.getTeamId(), projectId);
+            
+            // 根据用户选择处理团队
+            if ("DISSOLVE".equals(teamAction)) {
+                // 解散团队
+                teamService.dissolveTeam(project.getTeamId(), userId);
+            } else if ("KEEP".equals(teamAction)) {
+                // 保留团队，将团队性质改为长期团队
+                com.teamup.server.modules.team.entity.Team team = teamService.getTeamById(project.getTeamId());
+                if (team != null) {
+                    team.setTeamNature("LONG_TERM");
+                    team.setUpdatedAt(LocalDateTime.now());
+                    teamService.updateById(team);
+                }
+            }
+        }
+        
+        log.info("项目完成：projectId={}, teamAction={}", projectId, teamAction);
+    }
+    
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void associateTeamWithProject(Long projectId, Long teamId, Long userId) {
+        Project project = projectMapper.selectById(projectId);
+        if (project == null) {
+            throw new BusinessException("项目不存在");
+        }
+        
+        if (!project.getCreatorId().equals(userId)) {
+            throw new BusinessException(ApiErrorCode.FORBIDDEN, "无权操作此项目");
+        }
+        
+        com.teamup.server.modules.team.entity.Team team = teamService.getTeamById(teamId);
+        if (team == null) {
+            throw new BusinessException("团队不存在");
+        }
+        
+        // 检查用户是否是团队成员
+        List<com.teamup.server.modules.team.vo.TeamMemberVO> members = teamService.getTeamMembers(teamId);
+        boolean isMember = members.stream().anyMatch(m -> m.getUserId().equals(userId));
+        if (!isMember) {
+            throw new BusinessException(ApiErrorCode.FORBIDDEN, "你不是该团队的成员");
+        }
+        
+        // 更新项目的团队ID
+        project.setTeamId(teamId);
+        project.setUpdatedAt(LocalDateTime.now());
+        projectMapper.updateById(project);
+        
+        // 在 team_projects 表中创建关联
+        teamProjectService.associateTeamWithProject(teamId, projectId);
+        
+        log.info("项目关联团队：projectId={}, teamId={}", projectId, teamId);
+    }
 }
-

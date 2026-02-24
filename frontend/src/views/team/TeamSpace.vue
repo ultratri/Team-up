@@ -172,15 +172,37 @@
               <span>团队聊天</span>
             </el-menu-item>
             <el-menu-item 
-              index="members"
+              index="sprints"
               tabindex="0"
-              @keydown.enter="handleMenuSelect('members')"
-              @keydown.space.prevent="handleMenuSelect('members')"
+              @keydown.enter="handleMenuSelect('sprints')"
+              @keydown.space.prevent="handleMenuSelect('sprints')"
               role="menuitem"
-              aria-label="成员管理"
+              aria-label="Sprint管理"
             >
-              <el-icon><User /></el-icon>
-              <span>成员管理</span>
+              <el-icon><TrendCharts /></el-icon>
+              <span>Sprint管理</span>
+            </el-menu-item>
+            <el-menu-item 
+              index="standup"
+              tabindex="0"
+              @keydown.enter="handleMenuSelect('standup')"
+              @keydown.space.prevent="handleMenuSelect('standup')"
+              role="menuitem"
+              aria-label="每日站会"
+            >
+              <el-icon><Calendar /></el-icon>
+              <span>每日站会</span>
+            </el-menu-item>
+            <el-menu-item 
+              index="settings"
+              tabindex="0"
+              @keydown.enter="handleMenuSelect('settings')"
+              @keydown.space.prevent="handleMenuSelect('settings')"
+              role="menuitem"
+              aria-label="团队设置"
+            >
+              <el-icon><Tools /></el-icon>
+              <span>团队设置</span>
             </el-menu-item>
           </el-menu>
         </el-aside>
@@ -213,7 +235,10 @@ import {
   ArrowDown,
   Setting,
   Delete,
-  Close
+  Close,
+  TrendCharts,
+  Calendar,
+  Tools
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -242,7 +267,9 @@ const activeMenu = computed(() => {
     'TeamTasks': 'tasks',
     'TeamFiles': 'files',
     'TeamChat': 'chat',
-    'TeamMembers': 'members'
+    'TeamSprints': 'sprints',
+    'TeamStandup': 'standup',
+    'TeamSettings': 'settings'
   }
   
   return moduleMap[routeName] || 'overview'
@@ -256,6 +283,11 @@ const loadTeamData = async () => {
     ElMessage.error('无效的团队 ID')
     router.push({ name: 'TeamList' })
     return
+  }
+
+  // 保存当前访问的团队ID（与用户ID关联）
+  if (authStore.user?.id) {
+    localStorage.setItem(`lastVisitedTeamId_${authStore.user.id}`, String(teamId.value))
   }
 
   const start = performance.now()
@@ -289,7 +321,9 @@ const handleMenuSelect = (key: string) => {
     'tasks': 'TeamTasks',
     'files': 'TeamFiles',
     'chat': 'TeamChat',
-    'members': 'TeamMembers'
+    'sprints': 'TeamSprints',
+    'standup': 'TeamStandup',
+    'settings': 'TeamSettings'
   }
   
   const routeName = routeMap[key]
@@ -301,8 +335,8 @@ const handleMenuSelect = (key: string) => {
     })
 
     // 2. 后台预取数据，不阻塞UI
-    if (key === 'tasks' || key === 'members' || key === 'overview') {
-      teamStore.loadTeamPage(teamId.value, key as 'overview' | 'tasks' | 'members')
+    if (key === 'tasks' || key === 'overview') {
+      teamStore.loadTeamPage(teamId.value, key as 'overview' | 'tasks')
         .catch(err => {
           console.warn(`Prefetch for ${key} failed:`, err)
         })
@@ -315,9 +349,17 @@ const handleMenuSelect = (key: string) => {
  */
 const handleTeamSwitch = (command: number | string) => {
   if (command === 'view-all') {
-    // 查看所有团队
-    router.push({ name: 'TeamList' })
+    // 查看所有团队 - 添加 noRedirect 参数防止自动跳转
+    router.push({ 
+      name: 'TeamList',
+      query: { noRedirect: 'true' }
+    })
   } else if (typeof command === 'number') {
+    // 保存最后访问的团队ID（与用户ID关联）
+    if (authStore.user?.id) {
+      localStorage.setItem(`lastVisitedTeamId_${authStore.user.id}`, String(command))
+    }
+    
     // 切换到指定团队
     router.push({
       name: 'TeamOverview',

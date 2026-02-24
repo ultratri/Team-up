@@ -13,7 +13,9 @@ import com.teamup.server.modules.team.vo.TeamVO;
 import com.teamup.server.modules.user.security.UserContext;
 import com.teamup.server.modules.file.service.FileStorageService;
 import com.teamup.server.modules.user.entity.User;
+import com.teamup.server.modules.user.entity.UserProfile;
 import com.teamup.server.modules.user.service.UserService;
+import com.teamup.server.modules.user.service.ProfileService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -35,6 +37,7 @@ public class TeamController {
     private final TeamMemberMapper teamMemberMapper;
     private final FileStorageService fileStorageService;
     private final UserService userService;
+    private final ProfileService profileService;
 
     @PostMapping
     public Result<Team> createTeam(@RequestBody TeamCreateRequest request) {
@@ -47,12 +50,33 @@ public class TeamController {
     }
 
     @GetMapping("/{id}")
-    public Result<Team> getTeam(@PathVariable Long id) {
+    public Result<TeamVO> getTeam(@PathVariable Long id) {
         Team team = teamService.getTeamById(id);
         if (team == null) {
             return Result.error(404, "团队不存在");
         }
-        return Result.success(team);
+        
+        // 转换为 VO
+        TeamVO vo = TeamVO.fromEntity(team);
+        
+        // 填充导师信息
+        if (team.getMentorId() != null) {
+            User mentor = userService.getUserById(team.getMentorId());
+            if (mentor != null) {
+                UserProfile profile = profileService.getProfileByUserId(team.getMentorId());
+                TeamVO.MentorInfo mentorInfo = new TeamVO.MentorInfo();
+                mentorInfo.setId(mentor.getId());
+                mentorInfo.setName(mentor.getUsername());
+                if (profile != null) {
+                    mentorInfo.setAvatar(profile.getAvatarUrl());
+                    mentorInfo.setDepartment(profile.getDepartment());
+                    mentorInfo.setMajor(profile.getMajor());
+                }
+                vo.setMentor(mentorInfo);
+            }
+        }
+        
+        return Result.success(vo);
     }
 
     @GetMapping("/user/{userId}")
@@ -99,34 +123,59 @@ public class TeamController {
      * @param teamId 团队ID
      * @return 团队统计数据
      */
+    /**
+     * 获取团队统计数据
+     * @param teamId 团队ID
+     * @return 团队统计数据
+     */
     @GetMapping("/{teamId}/statistics")
     public Result<TeamStatisticsVO> getTeamStatistics(@PathVariable Long teamId) {
-        // 验证团队是否存在
-        Team team = teamService.getTeamById(teamId);
-        if (team == null) {
-            return Result.error(404, "团队不存在");
+        try {
+            // 验证团队是否存在
+            Team team = teamService.getTeamById(teamId);
+            if (team == null) {
+                return Result.error(404, "团队不存在");
+            }
+            
+            // 尝试获取当前用户ID进行权限验证
+            Long currentUserId = null;
+            try {
+                currentUserId = UserContext.getCurrentUserId();
+            } catch (Exception e) {
+                System.err.println("获取用户ID失败: " + e.getMessage());
+                System.err.println("SecurityContext: " + org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication());
+                return Result.error(401, "请先登录");
+            }
+            
+            if (!isTeamMember(teamId, currentUserId)) {
+                return Result.error(403, "无权限访问该团队数据");
+            }
+            
+            // 计算并返回统计数据
+            TeamStatisticsVO statistics = statisticsService.calculateStatistics(teamId);
+            return Result.success(statistics);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.error(500, "获取团队统计失败: " + e.getMessage());
         }
-        
-        // 验证用户是否为团队成员
-        Long currentUserId = UserContext.getCurrentUserId();
-        if (!isTeamMember(teamId, currentUserId)) {
-            return Result.error(403, "无权限访问该团队数据");
-        }
-        
-        // 计算并返回统计数据
-        TeamStatisticsVO statistics = statisticsService.calculateStatistics(teamId);
-        return Result.success(statistics);
     }
     
     /**
-     * 检查用户是否为团队成员
+     * 检查用户是否为团队成员或导师
      */
     private boolean isTeamMember(Long teamId, Long userId) {
+        // 检查是否为团队成员
         com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<TeamMember> wrapper = 
             new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
         wrapper.eq("team_id", teamId);
         wrapper.eq("user_id", userId);
-        return teamMemberMapper.selectCount(wrapper) > 0;
+        if (teamMemberMapper.selectCount(wrapper) > 0) {
+            return true;
+        }
+        
+        // 检查是否为团队导师
+        Team team = teamService.getTeamById(teamId);
+        return team != null && userId.equals(team.getMentorId());
     }
     
     /**
@@ -212,5 +261,81 @@ public class TeamController {
         } catch (Exception e) {
             return Result.error(500, "更新团队失败: " + e.getMessage());
         }
+    }
+    
+    /**
+     * 获取团队关联的比赛列表
+     */
+    @GetMapping("/{teamId}/competitions")
+    public Result<List<Map<String, Object>>> getTeamCompetitions(@PathVariable Long teamId) {
+        Long currentUserId = UserContext.getCurrentUserId();
+        
+        // 验证用户是否为团队成员
+        if (!isTeamMember(teamId, currentUserId)) {
+            return Result.error(403, "无权限访问该团队");
+        }
+        
+        try {
+            List<Map<String, Object>> competitions = teamService.getTeamCompetitions(teamId);
+            return Result.success(competitions);
+        } catch (Exception e) {
+            return Result.error(500, "获取关联比赛失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 添加团队关联比赛
+     */
+    @PostMapping("/{teamId}/competitions/{competitionId}")
+    public Result<Void> addTeamCompetition(
+            @PathVariable Long teamId, 
+            @PathVariable Long competitionId) {
+        Long currentUserId = UserContext.getCurrentUserId();
+        
+        // 验证用户是否为团队领导者
+        if (!isTeamLeader(teamId, currentUserId)) {
+            return Result.error(403, "只有团队领导者可以关联比赛");
+        }
+        
+        try {
+            teamService.addTeamCompetition(teamId, competitionId);
+            return Result.success();
+        } catch (Exception e) {
+            return Result.error(500, "关联比赛失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 移除团队关联比赛
+     */
+    @DeleteMapping("/{teamId}/competitions/{competitionId}")
+    public Result<Void> removeTeamCompetition(
+            @PathVariable Long teamId, 
+            @PathVariable Long competitionId) {
+        Long currentUserId = UserContext.getCurrentUserId();
+        
+        // 验证用户是否为团队领导者
+        if (!isTeamLeader(teamId, currentUserId)) {
+            return Result.error(403, "只有团队领导者可以移除比赛关联");
+        }
+        
+        try {
+            teamService.removeTeamCompetition(teamId, competitionId);
+            return Result.success();
+        } catch (Exception e) {
+            return Result.error(500, "移除比赛关联失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 检查用户是否为团队领导者
+     */
+    private boolean isTeamLeader(Long teamId, Long userId) {
+        com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<TeamMember> wrapper = 
+            new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
+        wrapper.eq("team_id", teamId);
+        wrapper.eq("user_id", userId);
+        wrapper.in("role", "LEADER", "OWNER", "ADMIN");
+        return teamMemberMapper.selectCount(wrapper) > 0;
     }
 }

@@ -53,7 +53,10 @@ public class TaskCommentServicePropertyTest {
         UserMapper userMapper = mock(UserMapper.class);
         UserProfileMapper userProfileMapper = mock(UserProfileMapper.class);
         PermissionService permissionService = mock(PermissionService.class);
-        TaskCommentServiceImpl taskCommentService = new TaskCommentServiceImpl(userMapper, userProfileMapper, permissionService);
+        com.teamup.server.modules.notification.service.NotificationService notificationService = mock(com.teamup.server.modules.notification.service.NotificationService.class);
+        com.teamup.server.modules.team.service.TaskService taskService = mock(com.teamup.server.modules.team.service.TaskService.class);
+        com.teamup.server.modules.team.service.TaskAssigneeService taskAssigneeService = mock(com.teamup.server.modules.team.service.TaskAssigneeService.class);
+        TaskCommentServiceImpl taskCommentService = new TaskCommentServiceImpl(userMapper, userProfileMapper, permissionService, notificationService, taskService, taskAssigneeService);
         
         // Inject the mocked mapper into the base class using reflection
         ReflectionTestUtils.setField(taskCommentService, "baseMapper", taskCommentMapper);
@@ -118,7 +121,10 @@ public class TaskCommentServicePropertyTest {
         UserMapper userMapper = mock(UserMapper.class);
         UserProfileMapper userProfileMapper = mock(UserProfileMapper.class);
         PermissionService permissionService = mock(PermissionService.class);
-        TaskCommentServiceImpl taskCommentService = new TaskCommentServiceImpl(userMapper, userProfileMapper, permissionService);
+        com.teamup.server.modules.notification.service.NotificationService notificationService = mock(com.teamup.server.modules.notification.service.NotificationService.class);
+        com.teamup.server.modules.team.service.TaskService taskService = mock(com.teamup.server.modules.team.service.TaskService.class);
+        com.teamup.server.modules.team.service.TaskAssigneeService taskAssigneeService = mock(com.teamup.server.modules.team.service.TaskAssigneeService.class);
+        TaskCommentServiceImpl taskCommentService = new TaskCommentServiceImpl(userMapper, userProfileMapper, permissionService, notificationService, taskService, taskAssigneeService);
         
         // Inject the mocked mapper into the base class using reflection
         ReflectionTestUtils.setField(taskCommentService, "baseMapper", taskCommentMapper);

@@ -6,6 +6,8 @@ import com.teamup.server.modules.project.mapper.ProjectMapper;
 import com.teamup.server.modules.search.dto.SearchItemDTO;
 import com.teamup.server.modules.search.dto.SearchResultDTO;
 import com.teamup.server.modules.search.service.SearchService;
+import com.teamup.server.modules.team.entity.Team;
+import com.teamup.server.modules.team.mapper.TeamMapper;
 import com.teamup.server.modules.user.entity.User;
 import com.teamup.server.modules.user.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,7 @@ public class SearchServiceImpl implements SearchService {
 
     private final ProjectMapper projectMapper;
     private final UserMapper userMapper;
+    private final TeamMapper teamMapper;
 
     @Override
     public SearchResultDTO globalSearch(String keyword, Long userId) {
@@ -76,7 +79,23 @@ public class SearchServiceImpl implements SearchService {
             result.getUsers().add(item);
         }
 
-        // TODO: 搜索团队（待实现）
+        // 搜索团队
+        LambdaQueryWrapper<Team> teamWrapper = new LambdaQueryWrapper<>();
+        teamWrapper.like(Team::getTeamName, searchKeyword)
+                   .or()
+                   .like(Team::getDescription, searchKeyword)
+                   .last("LIMIT 10");
+        
+        List<Team> teams = teamMapper.selectList(teamWrapper);
+        for (Team team : teams) {
+            SearchItemDTO item = new SearchItemDTO();
+            item.setType("teams");
+            item.setId(team.getId());
+            item.setTitle(team.getTeamName());
+            item.setDescription(team.getDescription() != null ? team.getDescription() : "团队ID: " + team.getId());
+            item.setIcon("👥");
+            result.getTeams().add(item);
+        }
 
         result.setTotalCount(result.getProjects().size() + result.getUsers().size() + result.getTeams().size());
 

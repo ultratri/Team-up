@@ -38,8 +38,16 @@ export async function exportData(type: string, format: string = 'excel') {
  */
 export async function getDataCounts() {
   try {
-    const response = await request.get('/admin/export/counts')
-    return response as any
+    // 注意：request 已经解包了 Result，直接返回 data 字段
+    const data = await request.get('/admin/export/counts')
+    return data || {
+      users: 0,
+      projects: 0,
+      teams: 0,
+      competitions: 0,
+      announcements: 0,
+      'audit-logs': 0
+    }
   } catch (error: any) {
     console.error('获取数据统计失败:', error)
     return {
@@ -47,7 +55,7 @@ export async function getDataCounts() {
       projects: 0,
       teams: 0,
       competitions: 0,
-      notifications: 0,
+      announcements: 0,
       'audit-logs': 0
     }
   }

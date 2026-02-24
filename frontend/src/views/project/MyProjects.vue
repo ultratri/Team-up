@@ -18,8 +18,11 @@
     </div>
 
     <el-tabs v-model="activeTab" @tab-change="handleTabChange">
-      <el-tab-pane label="招募中" name="RECRUITING" />
+      <el-tab-pane label="全部" name="" />
       <el-tab-pane label="草稿" name="DRAFT" />
+      <el-tab-pane label="招募中" name="RECRUITING" />
+      <el-tab-pane label="进行中" name="IN_PROGRESS" />
+      <el-tab-pane label="已完成" name="COMPLETED" />
     </el-tabs>
 
     <el-skeleton :loading="loading" animated :count="4">
@@ -28,7 +31,7 @@
           <el-card v-for="p in projects" :key="p.id" class="my-projects__card" shadow="hover">
             <div class="my-projects__card-header">
               <div class="my-projects__card-title">{{ p.title }}</div>
-              <el-tag :type="p.status === 'RECRUITING' ? 'success' : 'info'" size="small">{{ p.status }}</el-tag>
+              <el-tag :type="getStatusType(p.status)" size="small">{{ getStatusText(p.status) }}</el-tag>
             </div>
 
             <div class="my-projects__card-desc" v-html="p.description" />
@@ -44,6 +47,14 @@
                 @click="handlePublish(p.id)"
               >
                 发布
+              </el-button>
+              <el-button
+                v-if="p.status === 'COMPLETED'"
+                type="warning"
+                size="small"
+                @click="handleArchive(p.id)"
+              >
+                归档
               </el-button>
             </div>
           </el-card>
@@ -61,9 +72,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/store/auth'
-import { getProjects, publishProject } from '@/api/project'
+import { getMyProjects, publishProject, updateProject } from '@/api/project'
 import CreateProjectWizard from '@/components/project/CreateProjectWizard.vue'
 import EditProjectDialog from '@/components/project/EditProjectDialog.vue'
 import type { Project } from '@/types/project'
@@ -71,7 +82,7 @@ import type { Project } from '@/types/project'
 const router = useRouter()
 const authStore = useAuthStore()
 
-const activeTab = ref<'DRAFT' | 'RECRUITING'>('RECRUITING')
+const activeTab = ref<string>('')
 const loading = ref(false)
 const projects = ref<Project[]>([])
 const publishingId = ref<number | null>(null)
@@ -82,10 +93,10 @@ const editingProject = ref<Project | null>(null)
 const load = async () => {
   loading.value = true
   try {
-    const res = await getProjects({
+    const res = await getMyProjects({
       page: 1,
       size: 50,
-      status: activeTab.value,
+      status: activeTab.value || undefined,
     })
     projects.value = res.list
   } catch (e) {
@@ -117,6 +128,50 @@ const handlePublish = async (id: number) => {
   } finally {
     publishingId.value = null
   }
+}
+
+const handleArchive = async (id: number) => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要归档此项目吗？归档后项目将不再显示在主列表中。',
+      '确认归档',
+      {
+        confirmButtonText: '确定归档',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    await updateProject(id, { status: 'ARCHIVED' })
+    ElMessage.success('项目已归档')
+    await load()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('归档失败')
+    }
+  }
+}
+
+const getStatusType = (status: string) => {
+  const types: Record<string, any> = {
+    DRAFT: 'info',
+    RECRUITING: 'success',
+    IN_PROGRESS: 'warning',
+    COMPLETED: 'success',
+    ARCHIVED: 'info'
+  }
+  return types[status] || 'info'
+}
+
+const getStatusText = (status: string) => {
+  const texts: Record<string, string> = {
+    DRAFT: '草稿',
+    RECRUITING: '招募中',
+    IN_PROGRESS: '进行中',
+    COMPLETED: '已完成',
+    ARCHIVED: '已归档'
+  }
+  return texts[status] || status
 }
 
 onMounted(() => {

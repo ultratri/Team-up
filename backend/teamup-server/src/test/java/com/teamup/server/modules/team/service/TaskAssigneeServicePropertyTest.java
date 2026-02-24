@@ -50,7 +50,9 @@ public class TaskAssigneeServicePropertyTest {
         TaskAssigneeMapper taskAssigneeMapper = mock(TaskAssigneeMapper.class);
         UserMapper userMapper = mock(UserMapper.class);
         UserProfileMapper userProfileMapper = mock(UserProfileMapper.class);
-        TaskAssigneeServiceImpl taskAssigneeService = new TaskAssigneeServiceImpl(userMapper, userProfileMapper);
+        com.teamup.server.modules.notification.service.NotificationService notificationService = mock(com.teamup.server.modules.notification.service.NotificationService.class);
+        com.teamup.server.modules.team.mapper.TaskMapper taskMapper = mock(com.teamup.server.modules.team.mapper.TaskMapper.class);
+        TaskAssigneeServiceImpl taskAssigneeService = new TaskAssigneeServiceImpl(userMapper, userProfileMapper, notificationService, taskMapper);
         
         // Inject the mocked mapper into the base class using reflection
         ReflectionTestUtils.setField(taskAssigneeService, "baseMapper", taskAssigneeMapper);
@@ -139,7 +141,9 @@ public class TaskAssigneeServicePropertyTest {
         TaskAssigneeMapper taskAssigneeMapper = mock(TaskAssigneeMapper.class);
         UserMapper userMapper = mock(UserMapper.class);
         UserProfileMapper userProfileMapper = mock(UserProfileMapper.class);
-        TaskAssigneeServiceImpl taskAssigneeService = new TaskAssigneeServiceImpl(userMapper, userProfileMapper);
+        com.teamup.server.modules.notification.service.NotificationService notificationService = mock(com.teamup.server.modules.notification.service.NotificationService.class);
+        com.teamup.server.modules.team.mapper.TaskMapper taskMapper = mock(com.teamup.server.modules.team.mapper.TaskMapper.class);
+        TaskAssigneeServiceImpl taskAssigneeService = new TaskAssigneeServiceImpl(userMapper, userProfileMapper, notificationService, taskMapper);
         
         // Inject the mocked mapper into the base class using reflection
         ReflectionTestUtils.setField(taskAssigneeService, "baseMapper", taskAssigneeMapper);

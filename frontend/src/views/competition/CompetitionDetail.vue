@@ -37,61 +37,61 @@
       <!-- 比赛基本信息 -->
       <el-descriptions :column="2" border>
         <el-descriptions-item label="主办方">
-          {{ competition.organizer }}
+          {{ competition?.organizer }}
         </el-descriptions-item>
         <el-descriptions-item label="级别">
-          {{ getLevelText(competition.level) }}
+          {{ getLevelText(competition?.level) }}
         </el-descriptions-item>
         <el-descriptions-item label="范围">
-          {{ getScopeText(competition.scope) }}
+          {{ getScopeText(competition?.scope) }}
         </el-descriptions-item>
         <el-descriptions-item label="类型">
-          {{ getTypeText(competition.type) }}
+          {{ getTypeText(competition?.type) }}
         </el-descriptions-item>
         <el-descriptions-item label="报名开始">
-          {{ formatDateTime(competition.signupStartAt) }}
+          {{ formatDateTime(competition?.signupStartAt) }}
         </el-descriptions-item>
         <el-descriptions-item label="报名截止">
-          {{ formatDateTime(competition.signupEndAt) }}
+          {{ formatDateTime(competition?.signupEndAt) }}
         </el-descriptions-item>
         <el-descriptions-item label="比赛开始">
-          {{ formatDateTime(competition.startAt) }}
+          {{ formatDateTime(competition?.startAt) }}
         </el-descriptions-item>
         <el-descriptions-item label="比赛结束">
-          {{ formatDateTime(competition.endAt) }}
+          {{ formatDateTime(competition?.endAt) }}
         </el-descriptions-item>
         <el-descriptions-item label="队伍人数">
-          {{ competition.minTeamMembers || '-' }} - {{ competition.maxTeamMembers || '-' }} 人
+          {{ competition?.minTeamMembers || '-' }} - {{ competition?.maxTeamMembers || '-' }} 人
         </el-descriptions-item>
         <el-descriptions-item label="是否需要导师">
-          {{ competition.requireMentor ? '是' : '否' }}
+          {{ competition?.requireMentor ? '是' : '否' }}
         </el-descriptions-item>
-        <el-descriptions-item label="个人队伍上限" v-if="competition.maxTeamsPerUser !== null && competition.maxTeamsPerUser !== undefined">
+        <el-descriptions-item label="个人队伍上限" v-if="competition?.maxTeamsPerUser !== null && competition?.maxTeamsPerUser !== undefined">
           每人最多可参加 {{ competition.maxTeamsPerUser }} 支队伍
         </el-descriptions-item>
         <el-descriptions-item label="个人队伍上限" v-else>
           不限制每人可参加的队伍数量
         </el-descriptions-item>
         <el-descriptions-item label="报名资格">
-          <span v-if="competition.eligibilityEnabled">
+          <span v-if="competition?.eligibilityEnabled">
             本比赛仅面向配置的学院 / 专业 / 年级开放报名，不符合条件的同学无法创建队伍或申请加入
           </span>
           <span v-else>
             本比赛对报名对象无硬性限制，具体资格以实际通知为准
           </span>
         </el-descriptions-item>
-        <el-descriptions-item label="队伍数量" v-if="competition.teamCount !== undefined">
+        <el-descriptions-item label="队伍数量" v-if="competition?.teamCount !== undefined">
           {{ competition.teamCount }} 支
         </el-descriptions-item>
         <el-descriptions-item label="创建时间">
-          {{ formatDateTime(competition.createdAt) }}
+          {{ formatDateTime(competition?.createdAt) }}
         </el-descriptions-item>
       </el-descriptions>
 
       <el-divider />
 
       <!-- 比赛描述 -->
-      <div class="competition-content" v-if="competition.description">
+      <div class="competition-content" v-if="competition?.description">
         <h3>比赛描述</h3>
         <div class="content-text" v-html="competition.description"></div>
       </div>
@@ -290,11 +290,11 @@
         >
           <el-input-number
             v-model="createTeamForm.maxMembers"
-            :min="competition.minTeamMembers || 1"
-            :max="competition.maxTeamMembers"
+            :min="competition?.minTeamMembers || 1"
+            :max="competition?.maxTeamMembers"
             :disabled="true"
           />
-          <span class="form-tip">（比赛限制：{{ competition.minTeamMembers || 1 }} - {{ competition.maxTeamMembers }} 人）</span>
+          <span class="form-tip">（比赛限制：{{ competition?.minTeamMembers || 1 }} - {{ competition?.maxTeamMembers }} 人）</span>
         </el-form-item>
       </el-form>
       <template #footer>

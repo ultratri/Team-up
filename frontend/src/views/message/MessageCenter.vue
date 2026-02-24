@@ -454,7 +454,9 @@ const showImagePreview = (url: string) => {
           @click="selectConversation(conversation)"
         >
           <div class="conversation-avatar">
-            <el-avatar :size="48" :src="conversation.avatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'" />
+            <el-avatar :size="48" :src="conversation.avatar">
+              {{ (conversation.name || '对话').charAt(0) }}
+            </el-avatar>
             <el-badge v-if="conversation.unreadCount > 0" :value="conversation.unreadCount" :max="99" class="unread-badge" />
           </div>
 
@@ -498,7 +500,9 @@ const showImagePreview = (url: string) => {
         <!-- 聊天头部 -->
         <div class="chat-header">
           <div class="chat-info">
-            <el-avatar :size="40" :src="currentConversation.avatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'" />
+            <el-avatar :size="40" :src="currentConversation.avatar">
+              {{ (currentConversation.name || '对话').charAt(0) }}
+            </el-avatar>
             <span class="chat-name">{{ currentConversation.name }}</span>
           </div>
         </div>
@@ -511,7 +515,9 @@ const showImagePreview = (url: string) => {
             class="message-item"
             :class="{ 'my-message': isMyMessage(message) }"
           >
-            <el-avatar v-if="!isMyMessage(message)" :size="36" :src="message.senderAvatar" />
+            <el-avatar v-if="!isMyMessage(message)" :size="36" :src="message.senderAvatar">
+              {{ (message.senderName || '用户').charAt(0) }}
+            </el-avatar>
             <div class="message-content">
               <div v-if="!isMyMessage(message)" class="message-sender">{{ message.senderName }}</div>
               <div class="message-bubble">
@@ -553,7 +559,9 @@ const showImagePreview = (url: string) => {
               </div>
               <div class="message-time">{{ formatTime(message.createdAt) }}</div>
             </div>
-            <el-avatar v-if="isMyMessage(message)" :size="36" :src="authStore.user?.profile?.avatarUrl" />
+            <el-avatar v-if="isMyMessage(message)" :size="36" :src="authStore.user?.profile?.avatarUrl">
+              {{ (authStore.user?.profile?.realName || authStore.user?.username || '我').charAt(0) }}
+            </el-avatar>
           </div>
         </div>
 

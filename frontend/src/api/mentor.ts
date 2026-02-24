@@ -302,3 +302,82 @@ export async function getMentorPlaza(params?: {
   
   return { records: [], total: 0, page: params?.page || 1, size: params?.size || 20 }
 }
+
+// ==================== 团队导师申请相关接口 ====================
+
+/**
+ * 团队导师申请信息
+ */
+export interface TeamMentorApplication {
+  id: number
+  teamId: number
+  teamName?: string
+  competitionId?: number
+  competitionName?: string
+  mentorId: number
+  requestedBy: number
+  requesterName?: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  reason?: string
+  decidedAt?: string
+  createdAt: string
+}
+
+/**
+ * 获取导师的申请列表
+ */
+export async function getMentorApplicationsList(params?: {
+  page?: number
+  size?: number
+  status?: string
+}) {
+  const res = await request.get<any>('/mentor/applications', { params })
+  
+  if (res && typeof res === 'object') {
+    if ('code' in res && res.code === 200 && res.data) {
+      const data = res.data as any
+      return {
+        records: data.records || [],
+        total: data.total || 0,
+        page: data.current || params?.page || 1,
+        size: data.size || params?.size || 10
+      }
+    }
+    if ('records' in res) {
+      return {
+        records: (res as any).records || [],
+        total: (res as any).total || 0,
+        page: (res as any).current || params?.page || 1,
+        size: (res as any).size || params?.size || 10
+      }
+    }
+  }
+  
+  return { records: [], total: 0, page: params?.page || 1, size: params?.size || 10 }
+}
+
+/**
+ * 接受导师申请
+ */
+export async function acceptMentorApplication(applicationId: number) {
+  const res = await request.post<any>(`/mentor/applications/${applicationId}/accept`)
+  
+  if (res && typeof res === 'object' && 'code' in res) {
+    if (res.code === 200) return
+    throw new Error(res.message || '接受申请失败')
+  }
+}
+
+/**
+ * 拒绝导师申请
+ */
+export async function rejectMentorApplication(applicationId: number, reason?: string) {
+  const res = await request.post<any>(`/mentor/applications/${applicationId}/reject`, null, {
+    params: { reason }
+  })
+  
+  if (res && typeof res === 'object' && 'code' in res) {
+    if (res.code === 200) return
+    throw new Error(res.message || '拒绝申请失败')
+  }
+}

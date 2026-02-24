@@ -9,14 +9,25 @@ import com.teamup.server.modules.project.entity.ProjectApplication;
  */
 public interface ProjectService {
     /**
-     * 分页查询项目列表（只返回当前用户创建的项目）
+     * 分页查询项目列表（项目大厅 - 所有公开项目，排除草稿）
      */
     Page<Project> getProjectList(int page, int size, String type, String status, String keyword, Long userId);
+
+    /**
+     * 分页查询我的项目列表（只返回当前用户创建的项目）
+     */
+    Page<Project> getMyProjectList(int page, int size, String type, String status, String keyword, Long userId);
 
     /**
      * 获取项目详情
      */
     Project getProjectById(Long id);
+    
+    /**
+     * 增加项目浏览次数（带防刷机制）
+     * 同一用户/IP 在 24 小时内只计数一次
+     */
+    void incrementProjectViews(Long projectId, Long userId, String ipAddress);
 
     /**
      * 创建项目
@@ -67,5 +78,15 @@ public interface ProjectService {
      * 获取项目推荐列表
      */
     java.util.List<java.util.Map<String, Object>> getProjectRecommendations(Long projectId, Long userId);
+    
+    /**
+     * 完成项目（并处理团队：保留或解散）
+     */
+    void completeProject(Long projectId, Long userId, String teamAction, String summary);
+    
+    /**
+     * 为项目创建或关联团队
+     */
+    void associateTeamWithProject(Long projectId, Long teamId, Long userId);
 }
 

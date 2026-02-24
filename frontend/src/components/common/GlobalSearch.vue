@@ -30,11 +30,29 @@ const filteredResults = computed(() => {
 const handleKeyDown = (e: KeyboardEvent) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
     e.preventDefault()
-    searchVisible.value = true
+    open()
   }
-  if (e.key === 'Escape') {
-    searchVisible.value = false
+  if (e.key === 'Escape' && searchVisible.value) {
+    e.preventDefault()
+    close()
   }
+}
+
+const open = () => {
+  searchVisible.value = true
+  // 等待 DOM 更新后聚焦输入框
+  setTimeout(() => {
+    const input = document.querySelector('.search-dialog .search-input') as HTMLInputElement
+    if (input) {
+      input.focus()
+    }
+  }, 100)
+}
+
+const close = () => {
+  searchVisible.value = false
+  searchQuery.value = ''
+  searchResults.value = []
 }
 
 // 防抖搜索
@@ -56,12 +74,13 @@ const performSearch = async (query: string) => {
   loading.value = true
   try {
     const res = await request.get('/search/global', { params: { keyword: query } })
-    if (res && res.data) {
+    // 响应拦截器已经解包了 data，直接使用返回的数据
+    if (res) {
       // 合并所有类型的搜索结果
       const results = [
-        ...(res.data.projects || []),
-        ...(res.data.users || []),
-        ...(res.data.teams || [])
+        ...(res.projects || []),
+        ...(res.users || []),
+        ...(res.teams || [])
       ]
       searchResults.value = results
     }
@@ -74,8 +93,7 @@ const performSearch = async (query: string) => {
 }
 
 const handleResultClick = (result: any) => {
-  searchVisible.value = false
-  searchQuery.value = ''
+  close()
   
   switch (result.type) {
     case 'projects':
@@ -109,7 +127,7 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
 })
 
-defineExpose({ open: () => searchVisible.value = true })
+defineExpose({ open })
 </script>
 
 <template>
@@ -119,6 +137,10 @@ defineExpose({ open: () => searchVisible.value = true })
     width="600px"
     top="10vh"
     class="search-dialog"
+    :modal="true"
+    :close-on-click-modal="true"
+    :close-on-press-escape="true"
+    append-to-body
   >
     <div class="search-container">
       <!-- 搜索输入框 -->
@@ -187,10 +209,22 @@ defineExpose({ open: () => searchVisible.value = true })
   :deep(.el-dialog) {
     border-radius: 16px;
     box-shadow: var(--shadow-xl);
+    background: var(--bg-elevated);
   }
 
   :deep(.el-dialog__body) {
     padding: 0;
+  }
+  
+  :deep(.el-overlay) {
+    background-color: rgba(0, 0, 0, 0.5);
+  }
+}
+
+[data-theme='dark'] .search-dialog {
+  :deep(.el-dialog) {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
   }
 }
 
@@ -198,6 +232,8 @@ defineExpose({ open: () => searchVisible.value = true })
   display: flex;
   flex-direction: column;
   max-height: 60vh;
+  background: var(--bg-elevated);
+  border-radius: 16px;
 }
 
 .search-input-wrapper {
@@ -206,6 +242,7 @@ defineExpose({ open: () => searchVisible.value = true })
   padding: 20px 24px;
   border-bottom: 1px solid var(--border-subtle);
   gap: 12px;
+  background: var(--bg-elevated);
 
   .search-icon {
     font-size: 20px;
@@ -240,6 +277,7 @@ defineExpose({ open: () => searchVisible.value = true })
   gap: 8px;
   padding: 16px 24px;
   border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
 }
 
 .category-tab {
@@ -274,6 +312,7 @@ defineExpose({ open: () => searchVisible.value = true })
   flex: 1;
   overflow-y: auto;
   max-height: 400px;
+  background: var(--bg-elevated);
 }
 
 .result-item {

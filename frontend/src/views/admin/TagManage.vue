@@ -277,7 +277,8 @@ const statisticsDialogVisible = ref(false)
 const fetchTagList = async () => {
   loading.value = true
   try {
-    const { data } = await request.get('/admin/tags', {
+    // 注意：request 已经解包了 Result，直接返回 data 字段
+    const data = await request.get('/admin/tags', {
       params: {
         page: pagination.page,
         size: pagination.size,
@@ -285,8 +286,8 @@ const fetchTagList = async () => {
         keyword: filterForm.keyword || undefined
       }
     })
-    tagList.value = data.records
-    pagination.total = data.total
+    tagList.value = data.records || []
+    pagination.total = data.total || 0
   } catch (error) {
     ElMessage.error('获取标签列表失败')
   } finally {
@@ -362,14 +363,15 @@ const handleMerge = async (row: any) => {
   
   // 获取相同分类的其他标签
   try {
-    const { data } = await request.get('/admin/tags', {
+    // 注意：request 已经解包了 Result，直接返回 data 字段
+    const data = await request.get('/admin/tags', {
       params: {
         page: 1,
         size: 100,
         category: row.category
       }
     })
-    similarTags.value = data.records.filter((t: any) => t.id !== row.id)
+    similarTags.value = (data.records || []).filter((t: any) => t.id !== row.id)
     mergeDialogVisible.value = true
   } catch (error) {
     ElMessage.error('获取标签列表失败')
@@ -415,10 +417,11 @@ const handleDelete = (row: any) => {
 
 const handleViewStatistics = async () => {
   try {
-    const { data } = await request.get('/admin/tags/statistics', {
+    // 注意：request 已经解包了 Result，直接返回 data 字段
+    const data = await request.get('/admin/tags/statistics', {
       params: { limit: 50 }
     })
-    statisticsList.value = data
+    statisticsList.value = data || []
     statisticsDialogVisible.value = true
   } catch (error) {
     ElMessage.error('获取统计信息失败')
@@ -437,13 +440,13 @@ const getCategoryName = (category: string) => {
 }
 
 const getCategoryTag = (category: string) => {
-  const map: Record<string, string> = {
+  const map: Record<string, any> = {
     SKILL: 'primary',
     INTEREST: 'success',
     PERSONALITY: 'warning',
     PROJECT_TYPE: 'info'
   }
-  return map[category] || ''
+  return map[category]
 }
 
 const getStatusName = (status: string) => {
@@ -456,12 +459,12 @@ const getStatusName = (status: string) => {
 }
 
 const getStatusTag = (status: string) => {
-  const map: Record<string, string> = {
+  const map: Record<string, any> = {
     ACTIVE: 'success',
     DEPRECATED: 'info',
     MERGED: 'warning'
   }
-  return map[status] || ''
+  return map[status]
 }
 
 // 生命周期

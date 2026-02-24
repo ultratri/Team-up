@@ -29,8 +29,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -42,6 +44,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
     private final UserService userService;
     private final ProfileService profileService;
     private final CompetitionService competitionService;
+    @org.springframework.context.annotation.Lazy
     private final ProjectService projectService;
     private final com.teamup.server.modules.notification.service.NotificationService notificationService;
 
@@ -138,19 +141,29 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
 
     @Override
     public List<Team> getUserTeams(Long userId) {
+        // 查询用户作为成员的团队
         LambdaQueryWrapper<TeamMember> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(TeamMember::getUserId, userId);
         List<TeamMember> members = teamMemberMapper.selectList(queryWrapper);
         
-        if (members.isEmpty()) {
-            return List.of();
-        }
-        
         List<Long> teamIds = members.stream()
                 .map(TeamMember::getTeamId)
                 .collect(Collectors.toList());
-                
-        return listByIds(teamIds);
+        
+        // 查询用户作为导师的团队
+        LambdaQueryWrapper<Team> mentorQueryWrapper = new LambdaQueryWrapper<>();
+        mentorQueryWrapper.eq(Team::getMentorId, userId);
+        List<Team> mentorTeams = list(mentorQueryWrapper);
+        
+        // 合并两个列表，去重
+        Set<Long> allTeamIds = new HashSet<>(teamIds);
+        mentorTeams.forEach(team -> allTeamIds.add(team.getId()));
+        
+        if (allTeamIds.isEmpty()) {
+            return List.of();
+        }
+        
+        return listByIds(allTeamIds);
     }
 
     @Override
@@ -587,5 +600,121 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
         stats.put("totalProjects", 0L);
         
         return stats;
+    }
+    
+    @Override
+    public List<Map<String, Object>> getTeamCompetitions(Long teamId) {
+        // 查询team_competitions表获取关联的比赛ID列表
+        List<Long> competitionIds = baseMapper.selectTeamCompetitionIds(teamId);
+        
+        if (competitionIds == null || competitionIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        // 查询比赛详情
+        List<Map<String, Object>> competitions = new ArrayList<>();
+        for (Long competitionId : competitionIds) {
+            Competition competition = competitionService.getById(competitionId);
+            if (competition != null) {
+                Map<String, Object> compMap = new HashMap<>();
+                compMap.put("id", competition.getId());
+                compMap.put("name", competition.getName());
+                compMap.put("status", competition.getStatus());
+                compMap.put("startDate", competition.getStartAt());
+                compMap.put("endDate", competition.getEndAt());
+                compMap.put("description", competition.getDescription());
+                competitions.add(compMap);
+            }
+        }
+        
+        return competitions;
+    }
+    
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void addTeamCompetition(Long teamId, Long competitionId) {
+        // 验证团队是否存在
+        Team team = getById(teamId);
+        if (team == null) {
+            throw new RuntimeException("团队不存在");
+        }
+        
+        // 验证比赛是否存在
+        Competition competition = competitionService.getById(competitionId);
+        if (competition == null) {
+            throw new RuntimeException("比赛不存在");
+        }
+        
+        // 检查是否已经关联
+        if (baseMapper.isTeamCompetitionExists(teamId, competitionId)) {
+            throw new RuntimeException("该比赛已经关联过了");
+        }
+        
+        // 添加关联
+        baseMapper.insertTeamCompetition(teamId, competitionId);
+        
+        log.info("团队 {} 关联比赛 {} 成功", teamId, competitionId);
+    }
+    
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void removeTeamCompetition(Long teamId, Long competitionId) {
+        // 验证团队是否存在
+        Team team = getById(teamId);
+        if (team == null) {
+            throw new RuntimeException("团队不存在");
+        }
+        
+        // 检查关联是否存在
+        if (!baseMapper.isTeamCompetitionExists(teamId, competitionId)) {
+            throw new RuntimeException("该比赛未关联");
+        }
+        
+        // 移除关联
+        baseMapper.deleteTeamCompetition(teamId, competitionId);
+        
+        log.info("团队 {} 移除比赛 {} 关联成功", teamId, competitionId);
+    }
+    
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void dissolveTeam(Long teamId, Long userId) {
+        Team team = getById(teamId);
+        if (team == null) {
+            throw new RuntimeException("团队不存在");
+        }
+        
+        // 只有队长可以解散团队
+        if (!team.getLeaderId().equals(userId)) {
+            throw new RuntimeException("只有队长可以解散团队");
+        }
+        
+        // 更新团队状态为已解散
+        team.setStatus("DISSOLVED");
+        team.setUpdatedAt(java.time.LocalDateTime.now());
+        updateById(team);
+        
+        // 通知所有成员
+        try {
+            List<TeamMemberVO> members = getTeamMembers(teamId);
+            String teamName = team.getTeamName() != null ? team.getTeamName() : ("团队#" + teamId);
+            
+            for (TeamMemberVO member : members) {
+                if (!member.getUserId().equals(userId)) {
+                    notificationService.createNotification(
+                        member.getUserId(),
+                        "TEAM_DISSOLVED",
+                        "团队已解散",
+                        "你所在的团队「" + teamName + "」已被队长解散",
+                        "TEAM",
+                        teamId
+                    );
+                }
+            }
+        } catch (Exception e) {
+            log.error("发送团队解散通知失败", e);
+        }
+        
+        log.info("团队 {} 已解散", teamId);
     }
 }

@@ -17,6 +17,17 @@ import java.util.List;
 public interface UserTagMapper extends BaseMapper<UserTag> {
     
     /**
+     * 获取用户的所有标签（所有分类）
+     */
+    @Select("SELECT ut.id, ut.user_id, ut.tag_id, t.name as tag_name, t.category as tag_type, " +
+            "ut.proficiency_level, ut.is_verified " +
+            "FROM user_tags ut " +
+            "INNER JOIN tags t ON ut.tag_id = t.id " +
+            "WHERE ut.user_id = #{userId} AND t.status = 'ACTIVE' " +
+            "ORDER BY t.category, ut.created_at DESC")
+    List<UserTagVO> selectUserAllTags(Long userId);
+    
+    /**
      * 获取用户的技能标签（带标签名称）
      */
     @Select("SELECT ut.id, ut.user_id, ut.tag_id, t.name as tag_name, " +
@@ -30,7 +41,7 @@ public interface UserTagMapper extends BaseMapper<UserTag> {
     /**
      * 获取用户指定分类的标签（通用）
      */
-    @Select("SELECT ut.id, ut.user_id, ut.tag_id, t.name as tag_name, " +
+    @Select("SELECT ut.id, ut.user_id, ut.tag_id, t.name as tag_name, t.category as tag_type, " +
             "ut.proficiency_level, ut.is_verified " +
             "FROM user_tags ut " +
             "INNER JOIN tags t ON ut.tag_id = t.id " +

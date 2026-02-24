@@ -87,4 +87,24 @@ public class MentorCardVO {
      * 是否可申请
      */
     private Boolean available;
+    
+    /**
+     * 微信号
+     */
+    private String wechat;
+    
+    /**
+     * QQ号
+     */
+    private String qq;
+    
+    /**
+     * 邮箱
+     */
+    private String email;
+    
+    /**
+     * 电话
+     */
+    private String phone;
 }

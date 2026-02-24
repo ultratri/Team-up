@@ -29,6 +29,23 @@ public class TeamVO {
     private Integer memberCount;
     
     /**
+     * 导师信息
+     */
+    private MentorInfo mentor;
+    
+    /**
+     * 导师信息内部类
+     */
+    @Data
+    public static class MentorInfo {
+        private Long id;
+        private String name;
+        private String avatar;
+        private String department;
+        private String major;
+    }
+    
+    /**
      * 从Team实体创建TeamVO
      */
     public static TeamVO fromEntity(com.teamup.server.modules.team.entity.Team team) {
