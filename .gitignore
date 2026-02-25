@@ -108,3 +108,4 @@ frontend/scripts/
 frontend/tests/
 redis/
 docs/
+assume-unchanged-files.txt
