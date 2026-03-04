@@ -32,6 +32,50 @@
             <span class="assignee-name">{{ assignee.userName }}</span>
             <span class="assignee-time">{{ formatTime(assignee.assignedAt) }}</span>
           </div>
+
+    <!-- 智能推荐负责人 -->
+    <div class="recommend-section">
+      <div class="recommend-header">
+        <span class="recommend-title">智能推荐负责人</span>
+        <el-button
+          type="primary"
+          link
+          size="small"
+          :loading="recommendLoading"
+          @click="loadRecommendations"
+        >
+          刷新推荐
+        </el-button>
+      </div>
+
+      <div v-if="recommended.length > 0" class="recommend-list">
+        <div
+          v-for="item in recommended"
+          :key="item.userId"
+          class="recommend-item"
+        >
+          <div class="recommend-info">
+            <span class="name">{{ item.username || `用户#${item.userId}` }}</span>
+            <span class="score">
+              匹配度 {{ Math.round((item.score || 0) * 100) }}%
+            </span>
+          </div>
+          <el-button
+            type="primary"
+            size="small"
+            @click="handleAddRecommended(item)"
+          >
+            添加为负责人
+          </el-button>
+        </div>
+      </div>
+
+      <el-empty
+        v-else
+        :image-size="60"
+        :description="recommendLoading ? '正在计算推荐...' : '暂无推荐，可尝试刷新或完善团队成员资料'"
+      />
+    </div>
         </div>
         <el-button
           type="danger"
@@ -99,8 +143,9 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Close } from '@element-plus/icons-vue'
 import { request } from '@/utils/request'
-import { getTeamMembers } from '@/api/team'
+import { getTeamMembers, getTaskAssigneeRecommendations } from '@/api/team'
 import type { TeamMember } from '@/types/team'
+import type { CandidateMatchItem } from '@/utils/fieldNormalizer'
 
 interface TaskAssignee {
   id: number
@@ -128,6 +173,8 @@ const adding = ref(false)
 const removingId = ref<number | null>(null)
 const showAddDialog = ref(false)
 const selectedUserId = ref<number | null>(null)
+const recommendLoading = ref(false)
+const recommended = ref<CandidateMatchItem[]>([])
 
 // Computed
 const availableMembers = computed(() => {
@@ -162,19 +209,24 @@ const fetchTeamMembers = async () => {
 
 const handleAdd = async () => {
   if (!selectedUserId.value) return
+  await doAddAssignee(selectedUserId.value, true)
+}
 
+const doAddAssignee = async (userId: number, closeDialog: boolean) => {
   adding.value = true
   try {
     const response = await request.post<TaskAssignee>(
       `/tasks/${props.taskId}/assignees`,
-      { userId: selectedUserId.value }
+      { userId }
     )
     
     if (response) {
       assignees.value.push(response)
       ElMessage.success('添加负责人成功')
-      showAddDialog.value = false
-      selectedUserId.value = null
+      if (closeDialog) {
+        showAddDialog.value = false
+        selectedUserId.value = null
+      }
       emit('update')
     }
   } catch (error: any) {
@@ -183,6 +235,13 @@ const handleAdd = async () => {
   } finally {
     adding.value = false
   }
+}
+
+const handleAddRecommended = async (candidate: CandidateMatchItem) => {
+  if (!candidate || !candidate.userId) return
+  await doAddAssignee(candidate.userId, false)
+  // 添加后从推荐列表中移除该用户
+  recommended.value = recommended.value.filter(r => r.userId !== candidate.userId)
 }
 
 const handleRemove = async (assignee: TaskAssignee) => {
@@ -234,6 +293,20 @@ const formatTime = (time: string) => {
     return `${days}天前`
   } else {
     return date.toLocaleDateString('zh-CN')
+  }
+}
+
+const loadRecommendations = async () => {
+  recommendLoading.value = true
+  try {
+    const data = await getTaskAssigneeRecommendations(props.taskId, 5)
+    const assignedUserIds = new Set(assignees.value.map(a => a.userId))
+    recommended.value = (data || []).filter(item => !assignedUserIds.has(item.userId))
+  } catch (error: any) {
+    console.error('Failed to load assignee recommendations:', error)
+    ElMessage.error(error.message || '加载负责人推荐失败')
+  } finally {
+    recommendLoading.value = false
   }
 }
 
@@ -313,6 +386,57 @@ defineExpose({
     display: flex;
     align-items: center;
     gap: 8px;
+  }
+}
+
+.recommend-section {
+  margin-top: 24px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color-light);
+
+  .recommend-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+
+    .recommend-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-color);
+    }
+  }
+
+  .recommend-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    .recommend-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: var(--bg-elevated-soft);
+
+      .recommend-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+
+        .name {
+          font-size: 13px;
+          font-weight: 500;
+          color: var(--text-color);
+        }
+
+        .score {
+          font-size: 12px;
+          color: var(--text-color-muted);
+        }
+      }
+    }
   }
 }
 </style>

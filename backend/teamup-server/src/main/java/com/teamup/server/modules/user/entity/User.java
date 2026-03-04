@@ -22,7 +22,11 @@ public class User {
     private String password;
     private String email;
     private String phone;
+    private String nickname;  // 昵称
+    private String avatar;    // 头像URL
     private String status;  // ACTIVE, INACTIVE, BANNED
+    private LocalDateTime banUntil;  // 封禁截止时间
+    private String banReason;  // 封禁原因
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime lastLoginAt;

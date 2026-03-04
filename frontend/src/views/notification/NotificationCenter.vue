@@ -77,6 +77,12 @@ const handleRead = async (notification: Notification) => {
     }
   }
   
+  // 团队邀请特殊处理：跳转到邀请管理页面
+  if (notification.type === 'TEAM_INVITATION') {
+    router.push('/team/invitations')
+    return
+  }
+  
   // 跳转到相关页面
   if (notification.relatedType && notification.relatedId) {
     switch (notification.relatedType) {
@@ -184,6 +190,7 @@ const getNotificationIcon = (type: string) => {
     // 比赛相关
     'COMPETITION_PUBLISHED': '🏆',
     // 团队相关
+    'TEAM_INVITATION': '✉️',
     'TEAM_JOIN_APPLICATION': '👥',
     'TEAM_JOIN_APPROVED': '✅',
     'TEAM_JOIN_REJECTED': '❌',

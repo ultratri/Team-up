@@ -78,4 +78,14 @@ public class ProjectCreateRequest {
      * 团队名称（当 teamMode=CREATE_NEW 时使用）
      */
     private String teamName;
+    
+    /**
+     * 是否邀请队友
+     */
+    private Boolean inviteTeammates;
+    
+    /**
+     * 被邀请的用户ID列表
+     */
+    private java.util.List<Long> invitedUserIds;
 }

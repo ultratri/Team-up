@@ -52,11 +52,13 @@ const coverStyle = computed(() => ({
             <p class="hero-tagline">{{ user.tagline || '探索无限可能，共建梦之队' }}</p>
           </div>
           
-          <div class="hero-actions" v-if="editable">
-            <button class="btn-primary-glass" @click="emit('edit')">
+          <div class="hero-actions">
+            <button v-if="editable" class="btn-primary-glass" @click="emit('edit')">
               <el-icon><Edit /></el-icon>
               <span>编辑个人资料</span>
             </button>
+            <!-- 自定义操作按钮插槽 -->
+            <slot name="actions"></slot>
           </div>
         </div>
       </div>
@@ -251,6 +253,12 @@ const coverStyle = computed(() => ({
     color: #ffffff;
     text-shadow: 0 2px 10px rgba(0,0,0,0.5);
   }
+}
+
+.hero-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
 }
 
 .btn-primary-glass {

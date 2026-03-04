@@ -1,10 +1,8 @@
 package com.teamup.server.modules.notification.entity;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
+
 import java.time.LocalDateTime;
 
 /**
@@ -13,35 +11,53 @@ import java.time.LocalDateTime;
 @Data
 @TableName("notifications")
 public class Notification {
+    
     @TableId(type = IdType.AUTO)
     private Long id;
     
-    @TableField("user_id")
+    /**
+     * 接收用户ID
+     */
     private Long userId;
     
-    // type 字段：用于存储详细的通知类型（如 SYSTEM_ANNOUNCEMENT, TEAM_JOIN_APPLICATION 等）
-    @TableField("type")
-    private String type;
-    
-    // notificationType 字段：数据库的枚举字段（APPLICATION_RESULT, TASK_ASSIGNED 等）
-    @TableField("notification_type")
-    private String notificationType;
-    
+    /**
+     * 通知标题
+     */
     private String title;
+    
+    /**
+     * 通知内容
+     */
     private String content;
     
-    @TableField("related_type")
-    private String relatedType;  // PROJECT, TEAM, USER
+    /**
+     * 通知类型
+     */
+    private String type;
     
-    @TableField("related_id")
+    /**
+     * 关联类型（如：TEAM, PROJECT, USER等）
+     */
+    private String relatedType;
+    
+    /**
+     * 关联ID
+     */
     private Long relatedId;
     
-    @TableField("is_read")
+    /**
+     * 是否已读
+     */
     private Boolean isRead;
     
-    @TableField("created_at")
+    /**
+     * 创建时间
+     */
+    @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
     
-    @TableField("read_at")
+    /**
+     * 阅读时间
+     */
     private LocalDateTime readAt;
 }

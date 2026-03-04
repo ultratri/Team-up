@@ -74,7 +74,8 @@ const loadNotifications = async () => {
   try {
     const params = props.isPreview ? { page: 1, size: 5 } : { page: 1, size: 20 };
     const res = await getNotifications(params);
-    notifications.value = res.data.records;
+    // request.ts 已把 Result<T> 解包为 T，这里拿到的就是 Page<Notification>
+    notifications.value = (res as any)?.records || [];
   } catch (error) {
     console.error('获取通知列表失败', error);
   }
@@ -90,7 +91,25 @@ const handleNotificationClick = async (notification: Notification) => {
       console.error('标记已读失败', error);
     }
   }
-  // TODO: Add navigation logic based on notification.relatedType and relatedId
+  
+  // 根据通知类型进行跳转
+  if (notification.type === 'TEAM_INVITATION') {
+    // 团队邀请 → 跳转到邀请管理页面
+    router.push('/team/invitations');
+  } else if (notification.relatedType && notification.relatedId) {
+    // 其他类型根据 relatedType 跳转
+    const routeMap: Record<string, string> = {
+      'TEAM': `/team/${notification.relatedId}`,
+      'PROJECT': `/project/${notification.relatedId}`,
+      'TASK': `/task/${notification.relatedId}`,
+      'USER': `/user/${notification.relatedId}`
+    };
+    
+    const route = routeMap[notification.relatedType];
+    if (route) {
+      router.push(route);
+    }
+  }
 };
 
 const handleMarkAllRead = async () => {

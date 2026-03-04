@@ -21,11 +21,8 @@ let timer: number | null = null
 const loadUnreadCount = async () => {
   try {
     const res = await getUnreadCount()
-    if (res && res.data !== undefined) {
-      unreadCount.value = Number(res.data) || 0
-    } else {
-      unreadCount.value = 0
-    }
+    // request.ts 已把 Result<T> 解包为 T，这里拿到的就是数字
+    unreadCount.value = Number(res) || 0
   } catch (error) {
     console.error('加载未读数量失败', error)
     unreadCount.value = 0
@@ -64,6 +61,13 @@ const handleNotificationClick = async (notification: Notification) => {
     } catch (error) {
       console.error('标记已读失败', error)
     }
+  }
+
+  // 团队邀请特殊处理：跳转到邀请管理页面
+  if (notification.type === 'TEAM_INVITATION') {
+    router.push('/team/invitations')
+    closePreview()
+    return
   }
 
   if (notification.relatedType && notification.relatedId) {

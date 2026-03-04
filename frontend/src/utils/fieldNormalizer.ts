@@ -6,6 +6,39 @@
 import type { Team, TeamMember, TeamActivity } from '@/types/team'
 import type { ProjectFile } from '@/types/project'
 
+interface MatchBreakdown {
+  [key: string]: number
+}
+
+export interface CandidateMatchItem {
+  userId: number
+  username?: string
+  score: number
+  breakdown: MatchBreakdown
+  timeExplanation?: string
+  // 置信度与风险：来自匹配服务，用于前端解释“为什么是这个分”
+  confidence?: number
+  confidenceLevel?: string
+  riskLevel?: string
+  [key: string]: any
+}
+
+export interface ProjectMatchItem {
+  projectId: number
+  matchScore: number
+  breakdown: MatchBreakdown
+  timeExplanation?: string
+  [key: string]: any
+}
+
+export interface TeamMatchItem {
+  teamId: number
+  matchScore: number
+  breakdown: MatchBreakdown
+  matchReason?: string
+  [key: string]: any
+}
+
 /**
  * 标准化团队数据
  */
@@ -112,6 +145,41 @@ export function normalizeTeamActivities(activities: any[]): TeamActivity[] {
 export function normalizeProjectFiles(files: any[]): ProjectFile[] {
   if (!Array.isArray(files)) return []
   return files.map(normalizeProjectFile)
+}
+
+export function normalizeCandidateMatchItem(item: any): CandidateMatchItem {
+  return {
+    ...item,
+    userId: Number(item?.userId ?? item?.user_id ?? 0),
+    // 兼容不同接口字段：username / userName / nickname
+    username: item?.username ?? item?.userName ?? item?.nickname,
+    confidence: typeof item?.confidence === 'number' ? item.confidence : undefined,
+    confidenceLevel: item?.confidenceLevel ?? item?.confidence_level,
+    riskLevel: item?.riskLevel ?? item?.risk_level,
+    score: Number(item?.score ?? item?.matchScore ?? item?.match_score ?? 0),
+    breakdown: (item?.breakdown && typeof item.breakdown === 'object') ? item.breakdown : {},
+    timeExplanation: item?.timeExplanation ?? item?.time_explanation ?? ''
+  }
+}
+
+export function normalizeProjectMatchItem(item: any): ProjectMatchItem {
+  return {
+    ...item,
+    projectId: Number(item?.projectId ?? item?.project_id ?? 0),
+    matchScore: Number(item?.matchScore ?? item?.match_score ?? item?.score ?? 0),
+    breakdown: (item?.breakdown && typeof item.breakdown === 'object') ? item.breakdown : {},
+    timeExplanation: item?.timeExplanation ?? item?.time_explanation ?? ''
+  }
+}
+
+export function normalizeTeamMatchItem(item: any): TeamMatchItem {
+  return {
+    ...item,
+    teamId: Number(item?.team?.id ?? item?.teamId ?? item?.team_id ?? 0),
+    matchScore: Number(item?.matchScore ?? item?.match_score ?? item?.score ?? 0),
+    breakdown: (item?.breakdown && typeof item.breakdown === 'object') ? item.breakdown : {},
+    matchReason: item?.matchReason ?? item?.match_reason ?? ''
+  }
 }
 
 /**

@@ -65,5 +65,29 @@ public interface UserService {
      * 获取用户角色列表
      */
     java.util.List<String> getUserRoles(Long userId);
+    
+    /**
+     * 封禁用户
+     * 
+     * @param userId 用户ID
+     * @param days 封禁天数
+     * @param reason 封禁原因
+     */
+    void banUser(Long userId, Integer days, String reason);
+    
+    /**
+     * 解封用户
+     * 
+     * @param userId 用户ID
+     */
+    void unbanUser(Long userId);
+    
+    /**
+     * 检查用户是否被封禁
+     * 
+     * @param userId 用户ID
+     * @return 是否被封禁
+     */
+    boolean isUserBanned(Long userId);
 }
 

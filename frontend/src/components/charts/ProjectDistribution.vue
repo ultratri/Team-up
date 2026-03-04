@@ -44,17 +44,24 @@ const updateChart = () => {
       textStyle: {
         fontSize: 14,
         fontWeight: 'normal',
+        fontFamily: 'Microsoft YaHei, SimHei, Arial, sans-serif',
       },
     },
     tooltip: {
       trigger: 'item',
       formatter: '{a} <br/>{b}: {c} ({d}%)',
+      textStyle: {
+        fontFamily: 'Microsoft YaHei, SimHei, Arial, sans-serif',
+      },
     },
     legend: {
       orient: 'vertical',
       right: 10,
       top: 'center',
       data: props.data.map(item => item.name),
+      textStyle: {
+        fontFamily: 'Microsoft YaHei, SimHei, Arial, sans-serif',
+      },
     },
     series: [
       {
@@ -76,6 +83,7 @@ const updateChart = () => {
             show: true,
             fontSize: 20,
             fontWeight: 'bold',
+            fontFamily: 'Microsoft YaHei, SimHei, Arial, sans-serif',
           },
         },
         labelLine: {

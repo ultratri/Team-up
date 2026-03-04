@@ -4,6 +4,9 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.teamup.server.modules.project.entity.Project;
 import com.teamup.server.modules.project.entity.ProjectApplication;
 
+import java.util.List;
+import java.util.Map;
+
 /**
  * 项目服务接口
  */
@@ -32,12 +35,12 @@ public interface ProjectService {
     /**
      * 创建项目
      */
-    Project createProject(Project project, Long userId);
+    Project createProject(Project project, Long userId, List<Map<String, Object>> skillRequirements, List<Map<String, Object>> timeSlots);
 
     /**
      * 更新项目
      */
-    void updateProject(Long id, Project project, Long userId);
+    void updateProject(Long id, Project project, Long userId, List<Map<String, Object>> skillRequirements, List<Map<String, Object>> timeSlots);
 
     /**
      * 删除项目
@@ -72,12 +75,12 @@ public interface ProjectService {
     /**
      * 批量审核申请
      */
-    void batchReviewApplications(java.util.List<Long> applicationIds, Long userId, boolean approved, String comment);
+    void batchReviewApplications(List<Long> applicationIds, Long userId, boolean approved, String comment);
 
     /**
      * 获取项目推荐列表
      */
-    java.util.List<java.util.Map<String, Object>> getProjectRecommendations(Long projectId, Long userId);
+    List<Map<String, Object>> getProjectRecommendations(Long projectId, Long userId);
     
     /**
      * 完成项目（并处理团队：保留或解散）
@@ -88,5 +91,16 @@ public interface ProjectService {
      * 为项目创建或关联团队
      */
     void associateTeamWithProject(Long projectId, Long teamId, Long userId);
+
+    /**
+     * 获取项目技能需求列表
+     */
+    List<com.teamup.server.modules.project.entity.ProjectSkillRequirement> getProjectSkillRequirements(Long projectId);
+
+    /**
+     * 获取项目时间段需求列表
+     */
+    List<com.teamup.server.modules.project.entity.ProjectTimeSlot> getProjectTimeSlots(Long projectId);
+
 }
 

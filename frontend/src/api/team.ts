@@ -5,7 +5,11 @@ import {
   normalizeTeams, 
   normalizeTeamMember,
   normalizeTeamMembers,
-  normalizeTeamActivities
+  normalizeTeamActivities,
+  normalizeTeamMatchItem,
+  normalizeCandidateMatchItem,
+  type TeamMatchItem,
+  type CandidateMatchItem
 } from '@utils/fieldNormalizer'
 import type {
   Team,
@@ -114,6 +118,29 @@ export function getTeam(
 }
 
 /**
+ * 成员找团队（个人找长期团队）
+ */
+export async function getMatchedTeamsForMe(page = 1, size = 20): Promise<TeamMatchItem[]> {
+  const list = await request.get<any[]>('/teams/match-for-me', {
+    params: { page, size }
+  })
+  return (list || []).map(normalizeTeamMatchItem)
+}
+
+/**
+ * 团队找成员：为团队匹配候选人
+ */
+export async function getMatchedCandidatesForTeam(
+  teamId: number,
+  keyword?: string
+): Promise<CandidateMatchItem[]> {
+  const list = await request.post<any[]>(`/teams/${teamId}/match`, null, {
+    params: { keyword }
+  })
+  return (list || []).map(normalizeCandidateMatchItem)
+}
+
+/**
  * 获取队伍加入申请列表（队长）
  */
 export async function getTeamJoinApplications(
@@ -134,6 +161,13 @@ export async function reviewTeamJoinApplication(
   return request.post(`/teams/join-applications/${applicationId}/review`, null, {
     params: { approved, comment }
   }) as any
+}
+
+/**
+ * 申请加入团队（长期团队）
+ */
+export async function applyJoinTeam(teamId: number, reason?: string): Promise<any> {
+  return request.post(`/teams/${teamId}/join`, { reason }) as any
 }
 
 /**
@@ -341,6 +375,19 @@ export function filterTeamTasks(teamId: number, filters: {
   keyword?: string
 }) {
   return request.get<Task[]>(`/tasks/team/${teamId}/filter`, { params: filters })
+}
+
+/**
+ * 为任务推荐负责人（任务内匹配负责人，仅在所属团队成员内）
+ */
+export async function getTaskAssigneeRecommendations(
+  taskId: number,
+  limit: number = 5
+): Promise<CandidateMatchItem[]> {
+  const list = await request.get<any[]>(`/tasks/${taskId}/match-assignees`, {
+    params: { limit }
+  })
+  return (list || []).map(normalizeCandidateMatchItem)
 }
 
 // 创建任务

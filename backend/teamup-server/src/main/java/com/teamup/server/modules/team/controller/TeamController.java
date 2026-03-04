@@ -1,12 +1,13 @@
 package com.teamup.server.modules.team.controller;
 
-import com.teamup.server.common.exception.BusinessException;
 import com.teamup.server.modules.team.dto.TeamCreateRequest;
 import com.teamup.server.modules.team.entity.Team;
 import com.teamup.server.modules.team.entity.TeamMember;
 import com.teamup.server.modules.team.mapper.TeamMemberMapper;
 import com.teamup.server.modules.team.service.TeamService;
 import com.teamup.server.common.utils.Result;
+import com.teamup.server.modules.project.dto.matching.MatchResult;
+import com.teamup.server.modules.project.service.MatchingIntegrationService;
 import com.teamup.server.modules.team.service.TeamStatisticsService;
 import com.teamup.server.modules.team.vo.TeamStatisticsVO;
 import com.teamup.server.modules.team.vo.TeamVO;
@@ -26,6 +27,7 @@ import java.util.stream.Collectors;
 
 import com.teamup.server.modules.team.vo.TeamMemberVO;
 import java.util.Map;
+import java.util.ArrayList;
 
 @RestController
 @RequestMapping("/teams")
@@ -38,10 +40,10 @@ public class TeamController {
     private final FileStorageService fileStorageService;
     private final UserService userService;
     private final ProfileService profileService;
+    private final MatchingIntegrationService matchingIntegrationService;
 
     @PostMapping
     public Result<Team> createTeam(@RequestBody TeamCreateRequest request) {
-        // 检查当前用户角色，导师不能创建团队
         Long currentUserId = UserContext.getCurrentUserId();
         if (hasRole(currentUserId, "MENTOR")) {
             return Result.error(403, "导师不能创建团队");
@@ -56,10 +58,8 @@ public class TeamController {
             return Result.error(404, "团队不存在");
         }
         
-        // 转换为 VO
         TeamVO vo = TeamVO.fromEntity(team);
         
-        // 填充导师信息
         if (team.getMentorId() != null) {
             User mentor = userService.getUserById(team.getMentorId());
             if (mentor != null) {
@@ -83,21 +83,53 @@ public class TeamController {
     public Result<List<TeamVO>> getUserTeams(@PathVariable Long userId) {
         List<Team> teams = teamService.getUserTeams(userId);
         
-        // 转换为 TeamVO 并添加成员数量
         List<TeamVO> teamVOs = teams.stream().map(team -> {
             TeamVO vo = TeamVO.fromEntity(team);
-            
-            // 查询成员数量
             com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<TeamMember> wrapper = 
                 new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
             wrapper.eq("team_id", team.getId());
             Long memberCount = teamMemberMapper.selectCount(wrapper);
             vo.setMemberCount(memberCount.intValue());
-            
             return vo;
         }).collect(Collectors.toList());
         
         return Result.success(teamVOs);
+    }
+
+    /**
+     * 成员找团队（长期团队推荐）
+     * @deprecated 此功能已废弃，建议使用"成员找项目"功能
+     * 保留此接口仅为向后兼容，未来版本将移除
+     */
+    @Deprecated
+    @GetMapping("/match-for-me")
+    public Result<List<Map<String, Object>>> matchTeamsForCurrentUser(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        // 返回空列表，不再提供团队推荐功能
+        return Result.success(new ArrayList<>());
+    }
+
+    /**
+     * 团队找成员：为指定团队推荐候选人
+     */
+    @PostMapping("/{teamId}/match")
+    public Result<List<MatchResult>> matchCandidatesForTeam(
+            @PathVariable Long teamId,
+            @RequestParam(required = false) String keyword
+    ) {
+        Long currentUserId = UserContext.getCurrentUserId();
+        Team team = teamService.getTeamById(teamId);
+        if (team == null) {
+            return Result.error(404, "团队不存在");
+        }
+        if (!currentUserId.equals(team.getLeaderId())) {
+            return Result.error(403, "只有团队领导者可以使用团队找成员功能");
+        }
+
+        List<MatchResult> results = matchingIntegrationService.matchTeamCandidates(teamId, keyword);
+        return Result.success(results != null ? results : new ArrayList<>());
     }
 
     @PostMapping("/{teamId}/members")
@@ -118,40 +150,25 @@ public class TeamController {
         return Result.success(teamService.getTeamMembers(teamId));
     }
 
-    /**
-     * 获取团队统计数据
-     * @param teamId 团队ID
-     * @return 团队统计数据
-     */
-    /**
-     * 获取团队统计数据
-     * @param teamId 团队ID
-     * @return 团队统计数据
-     */
     @GetMapping("/{teamId}/statistics")
     public Result<TeamStatisticsVO> getTeamStatistics(@PathVariable Long teamId) {
         try {
-            // 验证团队是否存在
             Team team = teamService.getTeamById(teamId);
             if (team == null) {
                 return Result.error(404, "团队不存在");
             }
             
-            // 尝试获取当前用户ID进行权限验证
-            Long currentUserId = null;
+            Long currentUserId;
             try {
                 currentUserId = UserContext.getCurrentUserId();
             } catch (Exception e) {
-                System.err.println("获取用户ID失败: " + e.getMessage());
-                System.err.println("SecurityContext: " + org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication());
                 return Result.error(401, "请先登录");
             }
             
-            if (!isTeamMember(teamId, currentUserId)) {
-                return Result.error(403, "无权限访问该团队数据");
-            }
+            // 修改权限逻辑：允许所有登录用户查看团队统计信息
+            // 这有助于用户在申请加入前了解团队情况（团队推荐场景）
+            // 统计数据不包含敏感信息，可以公开给所有登录用户
             
-            // 计算并返回统计数据
             TeamStatisticsVO statistics = statisticsService.calculateStatistics(teamId);
             return Result.success(statistics);
         } catch (Exception e) {
@@ -160,11 +177,7 @@ public class TeamController {
         }
     }
     
-    /**
-     * 检查用户是否为团队成员或导师
-     */
     private boolean isTeamMember(Long teamId, Long userId) {
-        // 检查是否为团队成员
         com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<TeamMember> wrapper = 
             new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
         wrapper.eq("team_id", teamId);
@@ -173,14 +186,10 @@ public class TeamController {
             return true;
         }
         
-        // 检查是否为团队导师
         Team team = teamService.getTeamById(teamId);
         return team != null && userId.equals(team.getMentorId());
     }
     
-    /**
-     * 检查用户是否具有指定角色
-     */
     private boolean hasRole(Long userId, String roleName) {
         User user = userService.getUserById(userId);
         if (user == null || user.getRoles() == null) {
@@ -189,9 +198,6 @@ public class TeamController {
         return user.getRoles().contains(roleName);
     }
 
-    /**
-     * 退出团队（普通成员）
-     */
     @DeleteMapping("/{teamId}/leave")
     public Result<Void> leaveTeam(@PathVariable Long teamId) {
         try {
@@ -203,9 +209,6 @@ public class TeamController {
         }
     }
 
-    /**
-     * 删除团队（仅领导者）
-     */
     @DeleteMapping("/{teamId}")
     public Result<Void> deleteTeam(@PathVariable Long teamId) {
         try {
@@ -217,16 +220,12 @@ public class TeamController {
         }
     }
     
-    /**
-     * 上传团队头像
-     */
     @PostMapping("/{teamId}/avatar")
     public Result<Map<String, String>> uploadTeamAvatar(
             @PathVariable Long teamId,
             @RequestParam("file") MultipartFile file) {
         Long currentUserId = UserContext.getCurrentUserId();
         
-        // 验证用户是否为团队成员
         if (!isTeamMember(teamId, currentUserId)) {
             return Result.error(403, "无权限修改该团队");
         }
@@ -243,14 +242,10 @@ public class TeamController {
         }
     }
     
-    /**
-     * 更新团队信息
-     */
     @PutMapping("/{teamId}")
     public Result<Team> updateTeam(@PathVariable Long teamId, @RequestBody Map<String, Object> updates) {
         Long currentUserId = UserContext.getCurrentUserId();
         
-        // 验证用户是否为团队成员
         if (!isTeamMember(teamId, currentUserId)) {
             return Result.error(403, "无权限修改该团队");
         }
@@ -263,14 +258,10 @@ public class TeamController {
         }
     }
     
-    /**
-     * 获取团队关联的比赛列表
-     */
     @GetMapping("/{teamId}/competitions")
     public Result<List<Map<String, Object>>> getTeamCompetitions(@PathVariable Long teamId) {
         Long currentUserId = UserContext.getCurrentUserId();
         
-        // 验证用户是否为团队成员
         if (!isTeamMember(teamId, currentUserId)) {
             return Result.error(403, "无权限访问该团队");
         }
@@ -283,16 +274,12 @@ public class TeamController {
         }
     }
     
-    /**
-     * 添加团队关联比赛
-     */
     @PostMapping("/{teamId}/competitions/{competitionId}")
     public Result<Void> addTeamCompetition(
             @PathVariable Long teamId, 
             @PathVariable Long competitionId) {
         Long currentUserId = UserContext.getCurrentUserId();
         
-        // 验证用户是否为团队领导者
         if (!isTeamLeader(teamId, currentUserId)) {
             return Result.error(403, "只有团队领导者可以关联比赛");
         }
@@ -305,16 +292,12 @@ public class TeamController {
         }
     }
     
-    /**
-     * 移除团队关联比赛
-     */
     @DeleteMapping("/{teamId}/competitions/{competitionId}")
     public Result<Void> removeTeamCompetition(
             @PathVariable Long teamId, 
             @PathVariable Long competitionId) {
         Long currentUserId = UserContext.getCurrentUserId();
         
-        // 验证用户是否为团队领导者
         if (!isTeamLeader(teamId, currentUserId)) {
             return Result.error(403, "只有团队领导者可以移除比赛关联");
         }
@@ -327,9 +310,6 @@ public class TeamController {
         }
     }
     
-    /**
-     * 检查用户是否为团队领导者
-     */
     private boolean isTeamLeader(Long teamId, Long userId) {
         com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<TeamMember> wrapper = 
             new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
@@ -337,5 +317,90 @@ public class TeamController {
         wrapper.eq("user_id", userId);
         wrapper.in("role", "LEADER", "OWNER", "ADMIN");
         return teamMemberMapper.selectCount(wrapper) > 0;
+    }
+
+
+    /**
+     * 获取邀请详情
+     */
+    @GetMapping("/invitations/{invitationId}")
+    public Result<Map<String, Object>> getInvitation(@PathVariable Long invitationId) {
+        try {
+            Long currentUserId = UserContext.getCurrentUserId();
+            Map<String, Object> invitation = teamService.getInvitationDetail(invitationId, currentUserId);
+            return Result.success(invitation);
+        } catch (RuntimeException e) {
+            return Result.error(400, e.getMessage());
+        }
+    }
+    
+    /**
+     * 接受团队邀请
+     */
+    @PostMapping("/invitations/{invitationId}/accept")
+    public Result<Void> acceptInvitation(@PathVariable Long invitationId) {
+        try {
+            Long currentUserId = UserContext.getCurrentUserId();
+            teamService.acceptInvitation(invitationId, currentUserId);
+            return Result.success();
+        } catch (RuntimeException e) {
+            return Result.error(400, e.getMessage());
+        }
+    }
+
+    /**
+     * 拒绝团队邀请
+     */
+    @PostMapping("/invitations/{invitationId}/reject")
+    public Result<Void> rejectInvitation(@PathVariable Long invitationId) {
+        try {
+            Long currentUserId = UserContext.getCurrentUserId();
+            teamService.rejectInvitation(invitationId, currentUserId);
+            return Result.success();
+        } catch (RuntimeException e) {
+            return Result.error(400, e.getMessage());
+        }
+    }
+    
+    /**
+     * 获取我发出的邀请列表
+     */
+    @GetMapping("/invitations/sent")
+    public Result<List<Map<String, Object>>> getSentInvitations() {
+        try {
+            Long currentUserId = UserContext.getCurrentUserId();
+            List<Map<String, Object>> invitations = teamService.getSentInvitations(currentUserId);
+            return Result.success(invitations);
+        } catch (RuntimeException e) {
+            return Result.error(400, e.getMessage());
+        }
+    }
+    
+    /**
+     * 获取我收到的邀请列表
+     */
+    @GetMapping("/invitations/received")
+    public Result<List<Map<String, Object>>> getReceivedInvitations() {
+        try {
+            Long currentUserId = UserContext.getCurrentUserId();
+            List<Map<String, Object>> invitations = teamService.getReceivedInvitations(currentUserId);
+            return Result.success(invitations);
+        } catch (RuntimeException e) {
+            return Result.error(400, e.getMessage());
+        }
+    }
+    
+    /**
+     * 撤回邀请
+     */
+    @PostMapping("/invitations/{invitationId}/cancel")
+    public Result<Void> cancelInvitation(@PathVariable Long invitationId) {
+        try {
+            Long currentUserId = UserContext.getCurrentUserId();
+            teamService.cancelInvitation(invitationId, currentUserId);
+            return Result.success();
+        } catch (RuntimeException e) {
+            return Result.error(400, e.getMessage());
+        }
     }
 }

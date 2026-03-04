@@ -39,6 +39,7 @@ const updateChart = () => {
       textStyle: {
         fontSize: 14,
         fontWeight: 'normal',
+        fontFamily: 'Microsoft YaHei, SimHei, Arial, sans-serif',
       },
     },
     tooltip: {
@@ -46,10 +47,16 @@ const updateChart = () => {
       axisPointer: {
         type: 'cross',
       },
+      textStyle: {
+        fontFamily: 'Microsoft YaHei, SimHei, Arial, sans-serif',
+      },
     },
     legend: {
       data: ['新增项目'],
       bottom: 0,
+      textStyle: {
+        fontFamily: 'Microsoft YaHei, SimHei, Arial, sans-serif',
+      },
     },
     grid: {
       left: '3%',
@@ -61,9 +68,15 @@ const updateChart = () => {
       type: 'category',
       boundaryGap: false,
       data: dates,
+      axisLabel: {
+        fontFamily: 'Microsoft YaHei, SimHei, Arial, sans-serif',
+      },
     },
     yAxis: {
       type: 'value',
+      axisLabel: {
+        fontFamily: 'Microsoft YaHei, SimHei, Arial, sans-serif',
+      },
     },
     series: [
       {

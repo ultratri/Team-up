@@ -122,7 +122,7 @@ export function useRoutePreload(router: Router) {
  * 在应用启动后空闲时预加载常用页面
  */
 export function preloadCommonRoutes(router: Router) {
-  // 使用 requestIdleCallback 在浏览器空闲时预加载
+  // ?? requestIdleCallback ??????????
   const idleCallback = (window as any).requestIdleCallback || ((cb: Function) => setTimeout(cb, 1))
   
   idleCallback(() => {
@@ -132,7 +132,7 @@ export function preloadCommonRoutes(router: Router) {
       'EcosystemHub',
       'Profile',
       'Notifications',
-      'Messages',
+      // 'Messages', // ?????????
     ]
     
     preloadRoutes(router, commonRoutes)

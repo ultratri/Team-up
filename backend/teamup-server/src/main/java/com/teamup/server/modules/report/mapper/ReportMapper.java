@@ -4,9 +4,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.teamup.server.modules.report.entity.Report;
 import com.teamup.server.modules.report.vo.ReportDetailVO;
 import com.teamup.server.modules.report.vo.ReportStatisticsVO;
-import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.*;
 
 import java.util.List;
 
@@ -39,4 +37,41 @@ public interface ReportMapper extends BaseMapper<Report> {
             "FROM reports " +
             "GROUP BY target_type, status")
     List<ReportStatisticsVO> selectReportStatistics();
+    
+    /**
+     * 删除项目（软删除或硬删除根据业务需求）
+     * 注意: 这里使用UPDATE设置状态为已删除,而不是真正删除数据
+     */
+    @Update("UPDATE projects SET status = 'DELETED', updated_at = NOW() WHERE id = #{projectId}")
+    int deleteProject(@Param("projectId") Long projectId);
+    
+    /**
+     * 删除团队（软删除）
+     */
+    @Update("UPDATE teams SET status = 'DELETED', updated_at = NOW() WHERE id = #{teamId}")
+    int deleteTeam(@Param("teamId") Long teamId);
+    
+    /**
+     * 删除评论（硬删除）
+     */
+    @Delete("DELETE FROM project_comments WHERE id = #{commentId}")
+    int deleteComment(@Param("commentId") Long commentId);
+    
+    /**
+     * 查询项目创建者ID
+     */
+    @Select("SELECT creator_id FROM projects WHERE id = #{projectId}")
+    Long getProjectCreatorId(@Param("projectId") Long projectId);
+    
+    /**
+     * 查询团队创建者ID
+     */
+    @Select("SELECT creator_id FROM teams WHERE id = #{teamId}")
+    Long getTeamCreatorId(@Param("teamId") Long teamId);
+    
+    /**
+     * 查询评论作者ID
+     */
+    @Select("SELECT user_id FROM project_comments WHERE id = #{commentId}")
+    Long getCommentAuthorId(@Param("commentId") Long commentId);
 }

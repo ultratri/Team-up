@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   InfoFilled,
@@ -16,6 +16,7 @@ import {
   CircleCloseFilled,
   Close,
   Message,
+  WarningFilled,
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/store/auth'
 import { getProfile, updateProfile, getUserSkills, removeUserSkill } from '@/api/profile'
@@ -28,7 +29,10 @@ import AbilityRadar from '@/components/charts/AbilityRadar.vue'
 import GlassCard from '@/components/common/GlassCard.vue'
 import ProfileSkeleton from '@/components/skeleton/ProfileSkeleton.vue'
 import ImageUpload from '@/components/common/ImageUpload.vue'
+import CreditDisplay from '@/components/profile/CreditDisplay.vue'
 import { getDepartmentMajorPreset, type DepartmentMajorDict } from '@/utils/departmentMajorPreset'
+import ReportDialog from '@/components/report/ReportDialog.vue'
+import { TargetType } from '@/api/report'
 
 import MarkdownViewer from '@/components/common/MarkdownViewer.vue'
 
@@ -37,6 +41,7 @@ const loading = ref(false)
 const pageLoading = ref(true)
 const isEditing = ref(false)
 const showSkillDialog = ref(false)
+const showCertDialog = ref(false)
 const showTagDialog = ref(false)
 const currentTagCategory = ref<'INTEREST' | 'PERSONALITY' | 'PROJECT_TYPE'>('INTEREST')
 const profileFormRef = ref<any>()
@@ -72,6 +77,16 @@ const userProfile = reactive<Partial<UserProfile>>({
 })
 
 const userSkills = ref<UserSkill[]>([])
+const myCertifications = ref<any[]>([])
+
+// 认证申请表单
+const certForm = ref({
+  skillName: '',
+  proficiencyLevel: '',
+  certificationType: 'PEER_VERIFIED',
+  proofUrl: '',
+  proofDescription: ''
+})
 
 // 组队意向数据
 const userAvailability = reactive({
@@ -85,6 +100,25 @@ const userAvailability = reactive({
 })
 
 const dateRange = ref<[Date, Date] | null>(null)
+
+// 举报相关
+const reportDialogRef = ref<InstanceType<typeof ReportDialog> | null>(null)
+
+// 是否查看自己的主页
+const isViewingSelf = computed(() => {
+  return authStore.user?.id === userProfile.id
+})
+
+// 举报用户
+const handleReportUser = () => {
+  if (reportDialogRef.value && userProfile.id) {
+    reportDialogRef.value.open()
+  }
+}
+
+const handleReportSuccess = () => {
+  ElMessage.success('举报提交成功，我们会尽快处理')
+}
 
 // 表单验证规则
 const profileRules = {
@@ -199,6 +233,9 @@ const loadProfile = async () => {
     if (interestsRes) userInterests.value = interestsRes
     if (personalitiesRes) userPersonalities.value = personalitiesRes
     if (projectTypesRes) userProjectTypes.value = projectTypesRes
+    
+    // 加载认证数据
+    await loadMyCertifications()
     
     // 加载组队意向数据
     if (availabilityRes) {
@@ -325,6 +362,53 @@ const handleRemoveTag = async (tagId: number) => {
 }
 
 const isTagSelected = (id: number) => userSkills.value.some(s => s.tagId === id)
+
+// 加载我的认证申请
+const loadMyCertifications = async () => {
+  try {
+    const res = await request.get('/skill-certifications/my')
+    myCertifications.value = res || []
+  } catch (error) {
+    console.error('加载认证列表失败:', error)
+  }
+}
+
+// 获取技能的认证状态
+const getSkillCertStatus = (skillName: string) => {
+  const cert = myCertifications.value.find(c => c.skillName === skillName)
+  if (!cert) return null
+  return cert
+}
+
+// 申请技能认证
+const handleApplyCertification = (skill: any) => {
+  certForm.value = {
+    skillName: skill.skillName,
+    proficiencyLevel: skill.proficiencyLevel,
+    certificationType: 'PEER_VERIFIED',
+    proofUrl: '',
+    proofDescription: ''
+  }
+  showCertDialog.value = true
+}
+
+// 提交认证申请
+const handleSubmitCertification = async () => {
+  if (!certForm.value.proofDescription) {
+    ElMessage.warning('请填写补充说明')
+    return
+  }
+  
+  try {
+    await request.post('/skill-certifications', certForm.value)
+    ElMessage.success('认证申请已提交,请等待审核')
+    showCertDialog.value = false
+    await loadMyCertifications()
+  } catch (error: any) {
+    ElMessage.error(error.response?.data?.message || '申请失败')
+  }
+}
+
 const isCurrentTagSelected = (id: number) => {
   if (currentTagCategory.value === 'INTEREST') return userInterests.value.some(t => t.tagId === id)
   if (currentTagCategory.value === 'PERSONALITY') return userPersonalities.value.some(t => t.tagId === id)
@@ -384,7 +468,19 @@ onMounted(loadProfile)
           }" 
           editable 
           @edit="isEditing = true" 
-        />
+        >
+          <!-- 添加举报按钮插槽 -->
+          <template #actions v-if="!isViewingSelf && authStore.isLoggedIn">
+            <el-button
+              text
+              type="danger"
+              @click="handleReportUser"
+            >
+              <el-icon><WarningFilled /></el-icon>
+              举报
+            </el-button>
+          </template>
+        </ProfileHeader>
 
         <!-- Asymmetric Masonry Grid -->
         <div class="portfolio-grid">
@@ -419,6 +515,7 @@ onMounted(loadProfile)
                   <span class="legend-item expert"><i class="dot"></i> 精通</span>
                   <span class="legend-item advanced"><i class="dot"></i> 高级</span>
                   <span class="legend-item intermediate"><i class="dot"></i> 熟练</span>
+                  <span class="legend-item beginner"><i class="dot"></i> 入门</span>
                 </div>
               </div>
               <div class="skills-content">
@@ -426,12 +523,50 @@ onMounted(loadProfile)
                   <div 
                     v-for="skill in userSkills" 
                     :key="skill.id" 
-                    class="portfolio-tag skill"
-                    :data-level="skill.proficiencyLevel"
+                    class="skill-tag-wrapper"
                   >
-                    <i class="level-dot"></i>
-                    {{ skill.skillName }}
-                    <el-icon @click="handleCloseTag(skill)" class="remove-icon"><CircleCloseFilled /></el-icon>
+                    <div 
+                      class="portfolio-tag skill"
+                      :data-level="skill.proficiencyLevel"
+                    >
+                      <i class="level-dot"></i>
+                      {{ skill.skillName }}
+                      <el-icon @click="handleCloseTag(skill)" class="remove-icon"><CircleCloseFilled /></el-icon>
+                    </div>
+                    
+                    <!-- 认证状态显示 -->
+                    <div class="cert-status">
+                      <el-tag 
+                        v-if="getSkillCertStatus(skill.skillName)?.status === 'APPROVED' && getSkillCertStatus(skill.skillName)?.certificationType === 'OFFICIAL'" 
+                        type="success" 
+                        size="small"
+                        effect="dark"
+                      >
+                        官方认证
+                      </el-tag>
+                      <el-tag 
+                        v-else-if="getSkillCertStatus(skill.skillName)?.status === 'APPROVED' && getSkillCertStatus(skill.skillName)?.certificationType === 'PEER_VERIFIED'" 
+                        type="warning" 
+                        size="small"
+                      >
+                        导师认证
+                      </el-tag>
+                      <el-tag 
+                        v-else-if="getSkillCertStatus(skill.skillName)?.status === 'PENDING'" 
+                        type="info" 
+                        size="small"
+                      >
+                        审核中
+                      </el-tag>
+                      <el-button 
+                        v-else
+                        size="small" 
+                        text
+                        @click="handleApplyCertification(skill)"
+                      >
+                        申请认证
+                      </el-button>
+                    </div>
                   </div>
                   <button class="add-tag-btn" @click="showSkillDialog = true">+</button>
                 </div>
@@ -581,6 +716,11 @@ onMounted(loadProfile)
                 <p>暂未设置组队意向</p>
               </div>
             </GlassCard>
+
+            <!-- 信誉积分卡片 -->
+            <GlassCard class="spec-card credit-panel animate-slide-up" style="animation-delay: 0.4s">
+              <CreditDisplay />
+            </GlassCard>
           </div>
 
         </div>
@@ -620,6 +760,52 @@ onMounted(loadProfile)
       </el-select>
       <template #footer>
         <el-button type="primary" @click="handleAddTag" round block>确认添加</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 技能认证申请对话框 -->
+    <el-dialog v-model="showCertDialog" title="申请技能认证" width="500px" class="portfolio-dialog">
+      <el-form :model="certForm" label-position="top">
+        <el-form-item label="技能名称">
+          <el-input v-model="certForm.skillName" disabled />
+        </el-form-item>
+        
+        <el-form-item label="认证类型">
+          <el-radio-group v-model="certForm.certificationType">
+            <el-radio label="PEER_VERIFIED">导师认证</el-radio>
+            <el-radio label="OFFICIAL">官方认证</el-radio>
+          </el-radio-group>
+          <p style="color: var(--el-color-info); font-size: 12px; margin-top: 8px;">
+            导师认证由平台导师审核,官方认证需要提供官方证书
+          </p>
+        </el-form-item>
+        
+        <el-form-item label="证明材料链接(可选)">
+          <el-input 
+            v-model="certForm.proofUrl" 
+            placeholder="如：证书链接、项目链接、作品集链接"
+          />
+        </el-form-item>
+        
+        <el-form-item label="补充说明" required>
+          <el-input 
+            v-model="certForm.proofDescription" 
+            type="textarea"
+            :rows="4"
+            placeholder="描述你的技能水平和相关经验,这将帮助审核人员更好地评估..."
+            maxlength="500"
+            show-word-limit
+          />
+        </el-form-item>
+      </el-form>
+      
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="showCertDialog = false" round>取消</el-button>
+          <el-button type="primary" @click="handleSubmitCertification" round>
+            提交申请
+          </el-button>
+        </div>
       </template>
     </el-dialog>
 
@@ -737,6 +923,16 @@ onMounted(loadProfile)
         <el-button type="primary" @click="handleSave" :loading="loading" round>保存</el-button>
       </template>
     </el-dialog>
+    
+    <!-- 举报对话框 -->
+    <ReportDialog
+      v-if="userProfile.id"
+      ref="reportDialogRef"
+      :target-type="TargetType.USER"
+      :target-id="userProfile.id"
+      :target-name="userProfile.realName || authStore.user?.username || '用户'"
+      @success="handleReportSuccess"
+    />
   </div>
 </template>
 
@@ -925,6 +1121,16 @@ onMounted(loadProfile)
     .level-dot { background: var(--accent-color); }
     border-color: rgba(var(--accent-color-rgb), 0.2);
   }
+  
+  &[data-level="INTERMEDIATE"] {
+    .level-dot { background: #94a3b8; }
+    border-color: rgba(148, 163, 184, 0.2);
+  }
+  
+  &[data-level="BEGINNER"] {
+    .level-dot { background: #cbd5e1; }
+    border-color: rgba(203, 213, 225, 0.2);
+  }
 
   .remove-icon {
     font-size: 14px;
@@ -964,6 +1170,7 @@ onMounted(loadProfile)
     &.expert .dot { background: #10b981; }
     &.advanced .dot { background: var(--accent-color); }
     &.intermediate .dot { background: #94a3b8; }
+    &.beginner .dot { background: #cbd5e1; }
   }
 }
 
@@ -1284,5 +1491,18 @@ onMounted(loadProfile)
       border-color: var(--accent-color);
     }
   }
+}
+
+.skill-tag-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.cert-status {
+  display: flex;
+  justify-content: center;
+  min-height: 24px;
 }
 </style>

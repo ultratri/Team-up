@@ -2,11 +2,17 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { completeProject } from '@/api/project'
+import EvaluationDialog from './EvaluationDialog.vue'
 
 const props = defineProps<{
   modelValue: boolean
   projectId: number
   projectTitle: string
+  members: Array<{
+    userId: number
+    userName: string
+    realName?: string
+  }>
 }>()
 
 const emit = defineEmits<{
@@ -20,6 +26,7 @@ const visible = computed({
 })
 
 const loading = ref(false)
+const showEvaluationDialog = ref(false)
 const form = reactive({
   teamAction: 'KEEP' as 'KEEP' | 'DISSOLVE',
   summary: ''
@@ -33,7 +40,29 @@ watch(visible, (val) => {
   }
 })
 
+// 过滤掉当前用户自己
+const membersToEvaluate = computed(() => {
+  // 这里需要从外部传入当前用户ID，暂时返回所有成员
+  return props.members || []
+})
+
 const handleSubmit = async () => {
+  // 如果有团队成员需要评价，先打开评价对话框
+  if (membersToEvaluate.value.length > 0) {
+    showEvaluationDialog.value = true
+  } else {
+    // 没有成员需要评价，直接完成项目
+    await doCompleteProject()
+  }
+}
+
+// 评价完成后的回调
+const handleEvaluationSuccess = async () => {
+  await doCompleteProject()
+}
+
+// 执行项目完成
+const doCompleteProject = async () => {
   loading.value = true
   try {
     await completeProject(props.projectId, form.teamAction, form.summary)
@@ -99,11 +128,19 @@ const handleSubmit = async () => {
       <div class="dialog-footer">
         <el-button @click="visible = false">取消</el-button>
         <el-button type="primary" @click="handleSubmit" :loading="loading">
-          确认完成
+          {{ membersToEvaluate.length > 0 ? '下一步：评价成员' : '确认完成' }}
         </el-button>
       </div>
     </template>
   </el-dialog>
+
+  <!-- 成员互评对话框 -->
+  <EvaluationDialog
+    v-model="showEvaluationDialog"
+    :project-id="projectId"
+    :members="membersToEvaluate"
+    @success="handleEvaluationSuccess"
+  />
 </template>
 
 <style scoped lang="scss">

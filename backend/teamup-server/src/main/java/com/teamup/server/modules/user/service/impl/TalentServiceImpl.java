@@ -3,12 +3,14 @@ package com.teamup.server.modules.user.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.teamup.server.modules.user.entity.User;
-import com.teamup.server.modules.user.entity.UserAvailability;
+import com.teamup.server.modules.user.entity.UserTeamingAvailability;
 import com.teamup.server.modules.user.entity.UserProfile;
+import com.teamup.server.modules.user.entity.UserCredit;
 import com.teamup.server.modules.user.mapper.UserMapper;
-import com.teamup.server.modules.user.mapper.UserAvailabilityMapper;
+import com.teamup.server.modules.user.mapper.UserTeamingAvailabilityMapper;
 import com.teamup.server.modules.user.mapper.UserProfileMapper;
 import com.teamup.server.modules.user.mapper.UserRoleMapper;
+import com.teamup.server.modules.user.mapper.UserCreditMapper;
 import com.teamup.server.modules.user.service.TalentService;
 import com.teamup.server.modules.user.vo.TalentVO;
 import lombok.RequiredArgsConstructor;
@@ -30,22 +32,23 @@ import java.util.stream.Collectors;
 public class TalentServiceImpl implements TalentService {
 
     private final UserMapper userMapper;
-    private final UserAvailabilityMapper availabilityMapper;
+    private final UserTeamingAvailabilityMapper availabilityMapper;
     private final UserProfileMapper profileMapper;
     private final UserRoleMapper userRoleMapper;
+    private final UserCreditMapper creditMapper;
 
     @Override
     public Page<TalentVO> getTalentList(int page, int size, String department, String keyword, String intention) {
         // 1. 先查询所有 isAvailable = true 的用户ID
-        LambdaQueryWrapper<UserAvailability> availQuery = new LambdaQueryWrapper<>();
-        availQuery.eq(UserAvailability::getIsAvailable, true);
+        LambdaQueryWrapper<UserTeamingAvailability> availQuery = new LambdaQueryWrapper<>();
+        availQuery.eq(UserTeamingAvailability::getIsAvailable, true);
         
         // 如果有组队意向筛选
         if (StringUtils.hasText(intention)) {
-            availQuery.like(UserAvailability::getIntention, intention);
+            availQuery.like(UserTeamingAvailability::getIntention, intention);
         }
         
-        List<UserAvailability> availabilities = availabilityMapper.selectList(availQuery);
+        List<UserTeamingAvailability> availabilities = availabilityMapper.selectList(availQuery);
         
         // 如果没有可用的用户，直接返回空结果
         if (availabilities.isEmpty()) {
@@ -56,11 +59,11 @@ public class TalentServiceImpl implements TalentService {
         }
         
         List<Long> availableUserIds = availabilities.stream()
-            .map(UserAvailability::getUserId)
+            .map(UserTeamingAvailability::getUserId)
             .collect(Collectors.toList());
         
-        Map<Long, UserAvailability> availMap = availabilities.stream()
-            .collect(Collectors.toMap(UserAvailability::getUserId, a -> a));
+        Map<Long, UserTeamingAvailability> availMap = availabilities.stream()
+            .collect(Collectors.toMap(UserTeamingAvailability::getUserId, a -> a));
         
         // 2. 查询这些用户的基本信息（状态为 ACTIVE）
         LambdaQueryWrapper<User> userQuery = new LambdaQueryWrapper<>();
@@ -100,7 +103,14 @@ public class TalentServiceImpl implements TalentService {
         Map<Long, UserProfile> profileMap = profiles.stream()
             .collect(Collectors.toMap(UserProfile::getUserId, p -> p));
         
-        // 4. 查询所有用户的角色，用于过滤导师
+        // 4. 查询用户信誉分
+        LambdaQueryWrapper<UserCredit> creditQuery = new LambdaQueryWrapper<>();
+        creditQuery.in(UserCredit::getUserId, userIds);
+        List<UserCredit> credits = creditMapper.selectList(creditQuery);
+        Map<Long, UserCredit> creditMap = credits.stream()
+            .collect(Collectors.toMap(UserCredit::getUserId, c -> c));
+        
+        // 5. 查询所有用户的角色，用于过滤导师
         Map<Long, List<String>> userRolesMap = userIds.stream()
             .collect(Collectors.toMap(
                 userId -> userId,
@@ -123,7 +133,7 @@ public class TalentServiceImpl implements TalentService {
                 continue;
             }
             
-            UserAvailability avail = availMap.get(user.getId());
+            UserTeamingAvailability avail = availMap.get(user.getId());
             
             // 必须有可用性信息（因为我们是从可用性表开始查询的）
             if (avail == null) {
@@ -147,10 +157,18 @@ public class TalentServiceImpl implements TalentService {
             vo.setIntentions(parseIntentions(avail.getIntention()));
             vo.setWeeklyHours(avail.getWeeklyHours());
             
+            // 设置信誉分（如果有的话，默认为60分）
+            UserCredit credit = creditMap.get(user.getId());
+            if (credit != null && credit.getTotalCredit() != null) {
+                vo.setCreditScore(credit.getTotalCredit());
+            } else {
+                vo.setCreditScore(60); // 新用户默认60分
+            }
+            
             talents.add(vo);
         }
         
-        // 6. 返回结果
+        // 7. 返回结果
         Page<TalentVO> result = new Page<>(page, size);
         result.setTotal(talents.size()); // 注意：这里的 total 是过滤后的数量
         result.setRecords(talents);

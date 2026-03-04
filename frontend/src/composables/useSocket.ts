@@ -62,13 +62,16 @@ export function useSocket() {
       isConnected.value = false
     })
 
-    // 接收历史消息
+    // 接收历史消息（按时间倒序排列，需要反转）
     socket.value.on('message:history', (history: Message[]) => {
-      messages.value = history
+      console.log('收到历史消息:', history.length, '条')
+      // 后端返回的是倒序（最新的在前），需要反转为正序（最旧的在前）
+      messages.value = [...history].reverse()
     })
 
     // 接收新消息
     socket.value.on('message:new', (message: Message) => {
+      console.log('收到新消息:', message)
       messages.value.push(message)
     })
 
@@ -117,33 +120,43 @@ export function useSocket() {
 
   const joinTeam = (teamId: number) => {
     if (!socket.value) return
-    socket.value.emit('team:join', { teamId })
+    console.log('加入团队房间:', teamId)
+    // 清空当前消息，等待接收历史消息
+    messages.value = []
+    socket.value.emit('join_team', teamId)
   }
 
   const leaveTeam = (teamId: number) => {
     if (!socket.value) return
-    socket.value.emit('team:leave', { teamId })
+    console.log('离开团队房间:', teamId)
+    socket.value.emit('leave_team', teamId)
   }
 
   const sendMessage = (teamId: number, content: string, mentionedUsers: number[] = []) => {
-    if (!socket.value) return
+    if (!socket.value || !authStore.user) return
     
-    socket.value.emit('message:send', {
+    const message = {
       teamId,
+      senderId: authStore.user.id,
+      senderName: authStore.user.profile?.realName || authStore.user.username,
+      senderAvatar: authStore.user.profile?.avatarUrl || '',
       content,
       messageType: 'TEXT',
-      mentionedUsers,
-    })
+      mentionedUsers: mentionedUsers.length > 0 ? JSON.stringify(mentionedUsers) : undefined,
+    }
+    
+    console.log('发送消息:', message)
+    socket.value.emit('send_message', message)
   }
 
   const sendTyping = (teamId: number) => {
     if (!socket.value) return
-    socket.value.emit('typing:start', { teamId })
+    socket.value.emit('typing_start', { teamId })
   }
 
   const stopTyping = (teamId: number) => {
     if (!socket.value) return
-    socket.value.emit('typing:stop', { teamId })
+    socket.value.emit('typing_stop', { teamId })
   }
 
   const markAsRead = (messageId: string) => {

@@ -37,20 +37,26 @@ public class ProjectMilestoneServiceImpl implements ProjectMilestoneService {
 
     @Override
     public List<MilestoneVO> listByProject(Long projectId, Long userId) {
-        Project project = projectMapper.selectById(projectId);
-        if (project == null) {
-            throw new BusinessException("项目不存在");
+        try {
+            Project project = projectMapper.selectById(projectId);
+            if (project == null) {
+                throw new BusinessException("项目不存在");
+            }
+            // 允许项目成员/创建者查看，这里只校验存在
+
+            LambdaQueryWrapper<ProjectMilestone> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(ProjectMilestone::getProjectId, projectId)
+                    .orderByAsc(ProjectMilestone::getSortOrder)
+                    .orderByAsc(ProjectMilestone::getPlannedAt)
+                    .orderByAsc(ProjectMilestone::getId);
+
+            List<ProjectMilestone> list = milestoneMapper.selectList(wrapper);
+            return convertListToVO(list);
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BusinessException("查询里程碑失败: " + e.getMessage());
         }
-        // 允许项目成员/创建者查看，这里只校验存在
-
-        LambdaQueryWrapper<ProjectMilestone> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(ProjectMilestone::getProjectId, projectId)
-                .orderByAsc(ProjectMilestone::getSortOrder)
-                .orderByAsc(ProjectMilestone::getPlannedAt)
-                .orderByAsc(ProjectMilestone::getId);
-
-        List<ProjectMilestone> list = milestoneMapper.selectList(wrapper);
-        return convertListToVO(list);
     }
 
     @Override
@@ -197,11 +203,18 @@ public class ProjectMilestoneServiceImpl implements ProjectMilestoneService {
         if (ownerIds == null || ownerIds.isEmpty()) {
             return Map.of();
         }
-        List<User> users = userMapper.selectBatchIds(ownerIds);
-        Map<Long, String> map = new HashMap<>();
-        for (User user : users) {
-            map.put(user.getId(), user.getUsername());
+        try {
+            List<User> users = userMapper.selectBatchIds(ownerIds);
+            Map<Long, String> map = new HashMap<>();
+            for (User user : users) {
+                if (user != null && user.getId() != null && user.getUsername() != null) {
+                    map.put(user.getId(), user.getUsername());
+                }
+            }
+            return map;
+        } catch (Exception e) {
+            // 如果查询用户失败，返回空 Map，不影响主流程
+            return new HashMap<>();
         }
-        return map;
     }
 }

@@ -394,8 +394,32 @@ export async function getMyMentorCompetitionTeams(params: {
   size?: number
   competitionId?: number
   keyword?: string
-}): Promise<any> {
-  const res = await request.get<ApiResult<any>>('/mentor/competition-teams', { params })
-  if (res.code === 200 && res.data) return res.data
+}): Promise<{ records: any[]; total: number; current: number; size: number }> {
+  // request 拦截器会自动解包 ApiResult，返回的要么是分页对象，要么是数组
+  const res = await request.get<any>('/mentor/competition-teams', { params })
+
+  // 如果后端返回分页对象 { records, total, current, size }
+  if (res && typeof res === 'object') {
+    if (Array.isArray(res.records)) {
+      return {
+        records: res.records,
+        total: res.total ?? res.records.length ?? 0,
+        current: res.current ?? res.page ?? params.page ?? 1,
+        size: res.size ?? params.size ?? 20,
+      }
+    }
+
+    // 如果直接返回的是数组
+    if (Array.isArray(res)) {
+      return {
+        records: res,
+        total: res.length,
+        current: params.page ?? 1,
+        size: params.size ?? res.length ?? 20,
+      }
+    }
+  }
+
+  // 兜底：返回空列表
   return { records: [], total: 0, current: params.page || 1, size: params.size || 20 }
 }

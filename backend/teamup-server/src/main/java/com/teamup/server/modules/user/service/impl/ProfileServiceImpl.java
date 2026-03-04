@@ -147,12 +147,12 @@ public class ProfileServiceImpl implements ProfileService {
         wrapper.eq(UserCredit::getUserId, userId);
         UserCredit credit = userCreditMapper.selectOne(wrapper);
         
-        // 如果没有信誉记录，返回默认对象（暂不入库，遵循CQS原则）
+        // 如果没有信誉记录，返回默认对象（新用户默认60分）
         if (credit == null) {
             credit = new UserCredit();
             credit.setUserId(userId);
-            credit.setTotalCredit(0);
-            credit.setCreditLevel(CreditLevel.NEWBIE.getCode());
+            credit.setTotalCredit(60); // 新用户默认60分，与CreditService保持一致
+            credit.setCreditLevel(CreditLevel.RELIABLE.getCode()); // 60分对应RELIABLE等级
             credit.setUpdatedAt(LocalDateTime.now());
         }
         

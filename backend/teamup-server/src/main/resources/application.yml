@@ -80,10 +80,12 @@ jwt:
 logging:
   level:
     root: info
-    com.teamup.server: info
+    com.teamup.server: debug
+    com.teamup.server.modules.chat: debug
     org.springframework.web: info
     org.apache.catalina: warn
     org.apache.tomcat: warn
+    com.corundumstudio.socketio: debug
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{50} - %msg%n"
 

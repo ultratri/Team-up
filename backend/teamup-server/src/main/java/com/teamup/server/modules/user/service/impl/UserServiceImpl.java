@@ -641,5 +641,64 @@ public class UserServiceImpl implements UserService {
     public java.util.List<String> getUserRoles(Long userId) {
         return userRoleMapper.getUserRoles(userId);
     }
-}
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void banUser(Long userId, Integer days, String reason) {
+        log.info("封禁用户: userId={}, days={}, reason={}", userId, days, reason);
+        
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException("用户不存在");
+        }
+        
+        // 设置封禁状态
+        user.setStatus("BANNED");
+        user.setBanUntil(LocalDateTime.now().plusDays(days));
+        user.setBanReason(reason);
+        
+        userMapper.updateById(user);
+        log.info("用户封禁成功: userId={}, banUntil={}", userId, user.getBanUntil());
+    }
+    
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void unbanUser(Long userId) {
+        log.info("解封用户: userId={}", userId);
+        
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException("用户不存在");
+        }
+        
+        // 清除封禁状态
+        user.setStatus("ACTIVE");
+        user.setBanUntil(null);
+        user.setBanReason(null);
+        
+        userMapper.updateById(user);
+        log.info("用户解封成功: userId={}", userId);
+    }
+    
+    @Override
+    public boolean isUserBanned(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            return false;
+        }
+        
+        // 检查是否被封禁
+        if (!"BANNED".equals(user.getStatus())) {
+            return false;
+        }
+        
+        // 检查封禁是否已过期
+        if (user.getBanUntil() != null && user.getBanUntil().isBefore(LocalDateTime.now())) {
+            // 封禁已过期，自动解封
+            unbanUser(userId);
+            return false;
+        }
+        
+        return true;
+    }
+}

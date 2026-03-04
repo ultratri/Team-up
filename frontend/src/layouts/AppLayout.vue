@@ -4,13 +4,19 @@ import { useAuthStore } from '@/store/auth'
 import Sidebar from './Sidebar.vue'
 import Header from './Header.vue'
 import { websocketService } from '@/utils/websocket'
+import TeamChatFloating from '@/components/team/TeamChatFloating.vue'
 
 const authStore = useAuthStore()
 
 onMounted(() => {
   // 只有在已登录时才初始化 WebSocket 连接
+  // WebSocket 用于实时消息和通知，如果服务未启动也不影响核心功能
   if (authStore.isAuthenticated) {
-    websocketService.connect()
+    try {
+      websocketService.connect()
+    } catch (error) {
+      console.warn('WebSocket 连接失败，将使用轮询方式获取通知')
+    }
   }
   
   // 预加载核心视图组件，利用空闲时间下载资源
@@ -59,6 +65,8 @@ onUnmounted(() => {
           </transition>
         </router-view>
       </main>
+      <!-- 全局悬浮团队聊天窗 -->
+      <TeamChatFloating />
     </div>
   </div>
 </template>

@@ -49,6 +49,14 @@
                 发布
               </el-button>
               <el-button
+                v-if="p.status === 'DRAFT'"
+                type="danger"
+                size="small"
+                @click="handleDelete(p.id)"
+              >
+                删除
+              </el-button>
+              <el-button
                 v-if="p.status === 'COMPLETED'"
                 type="warning"
                 size="small"
@@ -74,7 +82,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/store/auth'
-import { getMyProjects, publishProject, updateProject } from '@/api/project'
+import { getMyProjects, publishProject, updateProject, deleteProject } from '@/api/project'
 import CreateProjectWizard from '@/components/project/CreateProjectWizard.vue'
 import EditProjectDialog from '@/components/project/EditProjectDialog.vue'
 import type { Project } from '@/types/project'
@@ -152,6 +160,28 @@ const handleArchive = async (id: number) => {
   }
 }
 
+const handleDelete = async (id: number) => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要删除此草稿项目吗？删除后不可恢复。',
+      '确认删除',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+
+    await deleteProject(id)
+    ElMessage.success('项目已删除')
+    await load()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('删除失败')
+    }
+  }
+}
+
 const getStatusType = (status: string) => {
   const types: Record<string, any> = {
     DRAFT: 'info',
@@ -175,6 +205,11 @@ const getStatusText = (status: string) => {
 }
 
 onMounted(() => {
+  // 预加载项目详情页组件，加快从“我的项目”跳转到详情的首屏速度
+  // 不影响代码分包，只是在空闲时提前下载对应 chunk
+  import('./ProjectDetail.vue').catch(() => {
+    // 静默忽略预加载失败，实际跳转时再由路由正常加载
+  })
   load()
 })
 </script>

@@ -29,13 +29,7 @@ public class SkillCertificationVO {
     private LocalDateTime createdAt;
     
     public String getProficiencyLevelText() {
-        if (proficiencyLevel == null) return "";
-        switch (proficiencyLevel) {
-            case "BEGINNER": return "入门";
-            case "INTERMEDIATE": return "熟练";
-            case "EXPERT": return "精通";
-            default: return proficiencyLevel;
-        }
+        return com.teamup.server.common.enums.ProficiencyLevel.getName(proficiencyLevel);
     }
     
     public String getCertificationTypeText() {

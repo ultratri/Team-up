@@ -7,6 +7,8 @@ import com.teamup.server.modules.team.entity.Task;
 import com.teamup.server.modules.team.service.TaskService;
 import com.teamup.server.common.utils.Result;
 import com.teamup.server.modules.user.security.JwtUtil;
+import com.teamup.server.modules.project.dto.matching.MatchResult;
+import com.teamup.server.modules.project.service.MatchingIntegrationService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -20,6 +22,7 @@ public class TaskController {
 
     private final TaskService taskService;
     private final JwtUtil jwtUtil;
+    private final MatchingIntegrationService matchingIntegrationService;
 
     private Long resolveUserId(HttpServletRequest request, Long userIdParam) {
         String auth = request.getHeader("Authorization");
@@ -80,5 +83,23 @@ public class TaskController {
         }
         taskService.deleteTask(resolvedUserId, id);
         return Result.success();
+    }
+
+    /**
+     * 项目内任务匹配：为任务推荐负责人（仅在所属团队成员内匹配）
+     */
+    @GetMapping("/{taskId}/match-assignees")
+    public Result<List<MatchResult>> matchAssigneesForTask(
+            HttpServletRequest request,
+            @PathVariable Long taskId,
+            @RequestParam(defaultValue = "5") int limit,
+            @RequestParam(required = false) Long userId
+    ) {
+        Long resolvedUserId = resolveUserId(request, userId);
+        if (resolvedUserId == null) {
+            return Result.error(401, "未登录或登录已过期");
+        }
+        List<MatchResult> results = matchingIntegrationService.matchTaskAssignees(taskId, limit);
+        return Result.success(results != null ? results : List.of());
     }
 }

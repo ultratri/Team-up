@@ -16,11 +16,11 @@ public class Evaluation {
     private Long id;
     
     private Long projectId;
-    private Long evaluatorId;
-    private Long evaluatedId;
-    private Integer techContributionScore;
-    private Integer collaborationScore;
-    private Integer taskCompletionScore;
+    private Long evaluatorId;  // 评价者ID
+    private Long evaluatedId;  // 被评价者ID
+    private Integer techContributionScore;  // 技术贡献分（1-5）
+    private Integer collaborationScore;  // 协作能力分（1-5）
+    private Integer taskCompletionScore;  // 任务完成分（1-5）
     private String comment;
     private Boolean isAnonymous;
     private LocalDateTime createdAt;

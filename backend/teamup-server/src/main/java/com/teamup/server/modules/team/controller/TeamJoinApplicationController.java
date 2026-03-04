@@ -27,6 +27,31 @@ public class TeamJoinApplicationController {
     private final TeamService teamService;
 
     /**
+     * 通用：申请加入队伍（适用于长期团队）
+     */
+    @PostMapping("/teams/{teamId}/join")
+    public Result<TeamJoinApplication> applyJoinTeam(
+            @PathVariable Long teamId,
+            @RequestBody(required = false) Map<String, Object> payload
+    ) {
+        try {
+            Long userId = UserContext.getCurrentUserId();
+            Team team = teamService.getById(teamId);
+            if (team == null) {
+                return Result.error(404, "队伍不存在");
+            }
+            String reason = payload != null ? (String) payload.get("reason") : null;
+            TeamJoinApplication app = joinApplicationService.apply(teamId, userId, reason);
+            return Result.success(app);
+        } catch (RuntimeException e) {
+            if (e.getMessage() != null && e.getMessage().contains("未登录")) {
+                return Result.error(401, "请先登录");
+            }
+            return Result.error(500, e.getMessage());
+        }
+    }
+
+    /**
      * 在比赛详情页申请加入队伍
      */
     @PostMapping("/competitions/{competitionId}/teams/{teamId}/join")

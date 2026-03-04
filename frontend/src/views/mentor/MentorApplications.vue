@@ -1,7 +1,7 @@
 <template>
   <div class="mentor-applications-page">
     <div class="page-header">
-      <h1 class="page-title">我的导师申请</h1>
+      <h1 class="page-title">团队指导申请</h1>
       <div class="header-actions">
         <el-button :icon="Refresh" @click="loadApplications">刷新</el-button>
       </div>

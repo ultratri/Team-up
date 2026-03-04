@@ -40,6 +40,18 @@ const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: false, transition: 'slide-fade' },
       },
       {
+        path: 'project/recommended',
+        name: 'RecommendedProjects',
+        component: () => import('../views/project/RecommendedProjects.vue'),
+        meta: { requiresAuth: true, title: '为我推荐', transition: 'slide-fade' },
+      },
+      {
+        path: 'project/:id/candidates',
+        name: 'ProjectCandidates',
+        component: () => import('../views/project/ProjectCandidates.vue'),
+        meta: { requiresAuth: true, title: '推荐候选人', transition: 'slide-fade' },
+      },
+      {
         path: 'project/:id',
         name: 'ProjectDetail',
         component: () => import('../views/project/ProjectDetail.vue'),
@@ -80,7 +92,7 @@ const routes: RouteRecordRaw[] = [
         path: 'mentor/applications',
         name: 'MentorApplications',
         component: () => import('../views/mentor/MentorApplications.vue'),
-        meta: { requiresAuth: true, roles: ['MENTOR', 'PLATFORM_ADMIN'], title: '我的导师申请', transition: 'slide-fade' },
+        meta: { requiresAuth: true, roles: ['MENTOR', 'PLATFORM_ADMIN'], title: '团队指导申请', transition: 'slide-fade' },
       },
       {
         path: 'team/join-applications/my',
@@ -88,6 +100,13 @@ const routes: RouteRecordRaw[] = [
         component: () => import('../views/team/MyJoinApplications.vue'),
         meta: { requiresAuth: true, title: '我的入队申请', transition: 'slide-fade' },
       },
+      {
+        path: 'team/invitations',
+        name: 'TeamInvitations',
+        component: () => import('../views/team/InvitationManagement.vue'),
+        meta: { requiresAuth: true, title: '邀请管理', transition: 'slide-fade' },
+      },
+
       {
         path: 'team',
         name: 'TeamList',
@@ -150,6 +169,12 @@ const routes: RouteRecordRaw[] = [
             name: 'TeamSettings',
             component: () => import('../views/team/TeamSettings.vue'),
             meta: { requiresAuth: true, requiresTeamMember: true, title: '团队设置', transition: 'slide-fade' }
+          },
+          {
+            path: 'candidates',
+            name: 'TeamCandidates',
+            component: () => import('../views/team/TeamCandidates.vue'),
+            meta: { requiresAuth: true, requiresTeamMember: true, title: '团队找成员', transition: 'slide-fade' }
           }
         ]
       },
@@ -195,12 +220,13 @@ const routes: RouteRecordRaw[] = [
         component: () => import('../views/notification/NotificationCenter.vue'),
         meta: { requiresAuth: true, transition: 'slide-fade' },
       },
-      {
-        path: 'messages',
-        name: 'Messages',
-        component: () => import('../views/message/MessageCenter.vue'),
-        meta: { requiresAuth: true, transition: 'slide-fade' },
-      },
+      // 已废弃：消息中心功能已整合到团队聊天中
+      // {
+      //   path: 'messages',
+      //   name: 'Messages',
+      //   component: () => import('../views/message/MessageCenter.vue'),
+      //   meta: { requiresAuth: true, transition: 'slide-fade' },
+      // },
       {
         path: 'applications',
         name: 'Applications',
@@ -335,6 +361,19 @@ const routes: RouteRecordRaw[] = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
+  // 优化滚动行为，提升用户体验
+  scrollBehavior(to, from, savedPosition) {
+    // 如果有保存的位置（如浏览器前进/后退），恢复它
+    if (savedPosition) {
+      return savedPosition
+    }
+    // 如果有 hash，滚动到对应元素
+    if (to.hash) {
+      return { el: to.hash, behavior: 'smooth' }
+    }
+    // 默认滚动到顶部，使用平滑滚动
+    return { top: 0, behavior: 'smooth' }
+  },
 })
 
 // 路由守卫

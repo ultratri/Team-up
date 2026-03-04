@@ -22,6 +22,14 @@
         <div style="display: flex; gap: 12px; align-items: center;">
           <el-button v-if="canEditProject" @click="openEditProject">编辑项目</el-button>
           <el-button 
+            v-if="canRecommendCandidates" 
+            type="primary"
+            @click="handleRecommendCandidates"
+          >
+            <el-icon><UserFilled /></el-icon>
+            智能推荐候选人
+          </el-button>
+          <el-button 
             v-if="canStartProject" 
             type="primary" 
             @click="handleStartProject"
@@ -50,6 +58,24 @@
           >
             申请加入
           </el-button>
+          <el-button
+            v-if="canApplyProject"
+            size="large"
+            @click="handleFindTeammates"
+          >
+            <el-icon><Connection /></el-icon>
+            找队友一起申请
+          </el-button>
+          <!-- 举报按钮 -->
+          <el-button
+            v-if="authStore.isLoggedIn && project.creatorId !== authStore.user?.id"
+            text
+            type="danger"
+            @click="handleReportProject"
+          >
+            <el-icon><WarningFilled /></el-icon>
+            举报
+          </el-button>
         </div>
       </div>
 
@@ -75,6 +101,84 @@
           {{ formatDate(project.createdAt) }}
         </el-descriptions-item>
       </el-descriptions>
+
+      <el-divider />
+
+      <!-- 技能需求 -->
+      <div class="skill-requirements-section">
+        <h3>技能需求</h3>
+        <div v-if="skillRequirementsLoading" class="loading-container">
+          <el-icon class="is-loading"><Loading /></el-icon>
+          <span>加载中...</span>
+        </div>
+        <div v-else-if="skillRequirements.length > 0" class="skill-requirements-list">
+          <div 
+            v-for="req in skillRequirements" 
+            :key="req.id" 
+            class="skill-requirement-item"
+            :class="{ required: req.required }"
+          >
+            <div class="skill-name">
+              <el-tag 
+                :type="req.required ? 'danger' : 'info'" 
+                size="small"
+                effect="plain"
+              >
+                {{ req.required ? '必需' : '可选' }}
+              </el-tag>
+              <span>{{ req.skillName }}</span>
+            </div>
+            <div v-if="req.proficiencyLevel" class="skill-level">
+              <span class="level-label">要求等级:</span>
+              <el-tag 
+                :type="getLevelType(req.proficiencyLevel)" 
+                size="small"
+              >
+                {{ getLevelText(req.proficiencyLevel) }}
+              </el-tag>
+            </div>
+          </div>
+        </div>
+        <div v-else class="no-requirements">
+          <el-empty description="暂无技能需求" :image-size="80" />
+        </div>
+      </div>
+
+      <el-divider />
+
+      <!-- 时间段需求 -->
+      <div class="time-slots-section">
+        <h3>可用时段需求</h3>
+        <div v-if="timeSlotsLoading" class="loading-container">
+          <el-icon class="is-loading"><Loading /></el-icon>
+          <span>加载中...</span>
+        </div>
+        <div v-else-if="timeSlots.length > 0" class="time-slots-list">
+          <div class="time-slots-grid">
+            <div 
+              v-for="(slot, index) in timeSlots" 
+              :key="index" 
+              class="time-slot-item"
+            >
+              <div class="slot-day">
+                <el-icon><Calendar /></el-icon>
+                <span>{{ getDayLabel(slot.dayOfWeek) }}</span>
+              </div>
+              <div class="slot-time">
+                <el-icon><Clock /></el-icon>
+                <span>{{ slot.startTime }} - {{ slot.endTime }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="time-slots-tip">
+            <el-icon><InfoFilled /></el-icon>
+            <span>项目需要成员在以上时段有空闲时间，以便协作和沟通</span>
+          </div>
+        </div>
+        <div v-else class="no-requirements">
+          <el-empty description="暂无时间段要求" :image-size="80" />
+        </div>
+      </div>
 
       <el-divider />
 
@@ -283,6 +387,200 @@
 
       <el-divider />
 
+      <!-- 智能推荐候选人区域 -->
+      <div v-if="canRecommendCandidates" ref="candidatesSection" class="recommended-candidates">
+        <div class="candidates-header">
+          <div class="title-area">
+            <h3>智能推荐候选人</h3>
+            <span class="hint">基于8维度匹配算法为项目推荐最合适的候选人</span>
+          </div>
+          <el-button 
+            v-if="!showCandidates"
+            type="primary"
+            @click="handleLoadCandidates"
+            :loading="candidatesLoading"
+          >
+            <el-icon><UserFilled /></el-icon>
+            查看推荐
+          </el-button>
+          <el-button 
+            v-else
+            @click="handleCollapseCandidates"
+          >
+            <el-icon><ArrowUp /></el-icon>
+            收起
+          </el-button>
+        </div>
+
+        <!-- 候选人列表 -->
+        <transition name="slide-fade">
+          <div v-if="showCandidates" class="candidates-content">
+            <!-- 加载状态 -->
+            <div v-if="candidatesLoading" class="loading-state">
+              <el-skeleton :rows="3" animated />
+            </div>
+
+            <!-- 空状态 -->
+            <div v-else-if="candidates.length === 0" class="empty-state">
+              <el-empty description="暂无推荐候选人">
+                <el-button type="primary" @click="handleLoadCandidates">刷新推荐</el-button>
+              </el-empty>
+            </div>
+
+            <!-- 候选人卡片 -->
+            <div v-else class="candidates-grid">
+              <div v-for="candidate in candidates" :key="candidate.userId" class="candidate-card">
+                <!-- 左侧：匹配度和操作 -->
+                <div class="card-left">
+                  <!-- 匹配度圆环 -->
+                  <div class="match-score">
+                    <el-progress
+                      type="circle"
+                      :percentage="Math.round((candidate.score || 0) * 100)"
+                      :width="80"
+                      :color="getScoreColor((candidate.score || 0) * 100)"
+                    >
+                      <template #default="{ percentage }">
+                        <div class="percentage-content">
+                          <span class="percentage-value">{{ percentage }}</span>
+                          <span class="percentage-label">
+                            匹配度
+                            <el-tooltip placement="top" effect="light">
+                              <template #content>
+                                <div style="max-width: 220px; line-height: 1.5;">
+                                  总分 = 多维加权结果（技能、协作、时间、目标、经验等），
+                                  不等同于单一技能分。
+                                </div>
+                              </template>
+                              <el-icon class="score-help-icon"><QuestionFilled /></el-icon>
+                            </el-tooltip>
+                          </span>
+                        </div>
+                      </template>
+                    </el-progress>
+                  </div>
+                  
+                  <!-- 操作按钮 -->
+                  <div class="card-actions">
+                    <el-button type="primary" size="small" @click="handleInviteCandidate(candidate)">
+                      邀请加入
+                    </el-button>
+                    <el-button type="primary" plain size="small" @click="handleViewCandidateDetail(candidate)">
+                      查看详情
+                    </el-button>
+                  </div>
+                </div>
+
+                <!-- 右侧：候选人信息 -->
+                <div class="candidate-info">
+                  <h4 class="candidate-name">{{ candidate.username || '未知用户' }}</h4>
+                  
+                  <div class="candidate-meta">
+                    <span v-if="candidate.department">{{ candidate.department }}</span>
+                    <span v-if="candidate.major">{{ candidate.major }}</span>
+                    <span v-if="candidate.grade">{{ candidate.grade }}年级</span>
+                  </div>
+
+                  <p v-if="candidate.bio" class="candidate-bio">{{ candidate.bio }}</p>
+
+                  <!-- 匹配详情 -->
+                  <div class="match-details">
+                    <div class="detail-item">
+                      <span class="label">技能匹配</span>
+                      <el-progress
+                        :percentage="Math.round((candidate.breakdown?.skill || 0) * 100)"
+                        :stroke-width="6"
+                        :show-text="false"
+                      />
+                      <span class="value">{{ Math.round((candidate.breakdown?.skill || 0) * 100) }}%</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="label">协作历史</span>
+                      <el-progress
+                        :percentage="Math.round((candidate.breakdown?.collaboration || 0) * 100)"
+                        :stroke-width="6"
+                        :show-text="false"
+                      />
+                      <span class="value">{{ formatCollaborationScore(candidate) }}</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="label">时间匹配</span>
+                      <el-progress
+                        :percentage="Math.round((candidate.breakdown?.time || 0) * 100)"
+                        :stroke-width="6"
+                        :show-text="false"
+                      />
+                      <span class="value">{{ Math.round((candidate.breakdown?.time || 0) * 100) }}%</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="label">目标契合</span>
+                      <el-progress
+                        :percentage="Math.round((candidate.breakdown?.goal || 0) * 100)"
+                        :stroke-width="6"
+                        :show-text="false"
+                      />
+                      <span class="value">{{ Math.round((candidate.breakdown?.goal || 0) * 100) }}%</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="label">项目经验</span>
+                      <el-progress
+                        :percentage="Math.round((candidate.breakdown?.experience || 0) * 100)"
+                        :stroke-width="6"
+                        :show-text="false"
+                      />
+                      <span class="value">{{ Math.round((candidate.breakdown?.experience || 0) * 100) }}%</span>
+                    </div>
+                  </div>
+
+                  <div class="candidate-badges">
+                    <el-tag size="small" :type="getConfidenceTagType(candidate.confidenceLevel)">
+                      置信度：{{ getConfidenceText(candidate.confidenceLevel) }}
+                    </el-tag>
+                    <el-tag size="small" :type="getRiskTagType(candidate.riskLevel)">
+                      风险：{{ getRiskText(candidate.riskLevel) }}
+                    </el-tag>
+                    <el-tag v-if="candidate.creditScore != null" size="small" type="info">
+                      信誉分：{{ candidate.creditScore }}
+                    </el-tag>
+                  </div>
+
+                  <!-- 推荐理由 -->
+                  <p v-if="candidate.matchReason" class="match-reason">
+                    推荐理由：{{ candidate.matchReason }}
+                  </p>
+                  <p v-if="candidate.explainSummary" class="explain-summary">
+                    {{ candidate.explainSummary }}
+                  </p>
+
+                  <div v-if="candidate.strengths?.length" class="explain-list">
+                    <div class="list-title">优势项</div>
+                    <ul>
+                      <li v-for="(item, idx) in candidate.strengths" :key="`s-${idx}`">{{ item }}</li>
+                    </ul>
+                  </div>
+
+                  <div v-if="candidate.weaknesses?.length" class="explain-list warn">
+                    <div class="list-title">待关注项</div>
+                    <ul>
+                      <li v-for="(item, idx) in candidate.weaknesses" :key="`w-${idx}`">{{ item }}</li>
+                    </ul>
+                  </div>
+
+                  <div v-if="candidate.improvementTips?.length" class="explain-list tips">
+                    <div class="list-title">提升建议</div>
+                    <ul>
+                      <li v-for="(item, idx) in candidate.improvementTips" :key="`t-${idx}`">{{ item }}</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </transition>
+      </div>
+
+      <el-divider />
+
       <div class="project-discussion">
         <div class="discussion-header">
           <h3>项目讨论区</h3>
@@ -368,24 +666,33 @@
                     <span class="time">{{ formatDate(comment.createdAt) }}</span>
                   </div>
                   <div class="comment-text" v-html="comment.content"></div>
-                  <div class="comment-actions">
-                    <el-button
-                      link
-                      size="small"
-                      @click="startReply(comment)"
-                    >
-                      回复
-                    </el-button>
-                    <el-button
-                      v-if="canPinComment"
-                      link
-                      size="small"
-                      type="primary"
-                      @click="handlePinComment(comment)"
-                    >
-                      置顶
-                    </el-button>
-                  </div>
+                    <div class="comment-actions">
+                      <el-button
+                        link
+                        size="small"
+                        @click="startReply(comment)"
+                      >
+                        回复
+                      </el-button>
+                      <el-button
+                        v-if="canPinComment"
+                        link
+                        size="small"
+                        type="primary"
+                        @click="handlePinComment(comment)"
+                      >
+                        置顶
+                      </el-button>
+                      <el-button
+                        v-if="authStore.isLoggedIn && comment.userId !== authStore.user?.id"
+                        link
+                        size="small"
+                        type="danger"
+                        @click="handleReportComment(comment)"
+                      >
+                        举报
+                      </el-button>
+                    </div>
 
                   <!-- 子回复 -->
                   <div
@@ -569,16 +876,206 @@
       v-model="completeDialogVisible"
       :project-id="project.id"
       :project-title="project.title"
+      :members="projectMembersForEvaluation"
       @success="handleProjectCompleted"
+    />
+
+    <!-- 找队友一起申请对话框 -->
+    <el-dialog
+      v-model="findTeammatesDialogVisible"
+      title="找队友一起申请"
+      width="900px"
+      :close-on-click-modal="false"
+    >
+      <div class="find-teammates-dialog">
+        <div class="dialog-header">
+          <el-alert
+            type="info"
+            :closable="false"
+            show-icon
+          >
+            <template #title>
+              <div class="alert-content">
+                <span>选择队友后，你们将作为一个团队一起申请该项目</span>
+                <el-tooltip placement="top" effect="light">
+                  <template #content>
+                    <div style="max-width: 300px; line-height: 1.6;">
+                      <p style="margin: 0 0 8px 0; font-weight: 600;">团队申请流程：</p>
+                      <p style="margin: 4px 0;">1. 你选择队友并提交申请</p>
+                      <p style="margin: 4px 0;">2. 队友需要确认参与</p>
+                      <p style="margin: 4px 0;">3. 所有队友确认后，项目创建者审核</p>
+                      <p style="margin: 4px 0;">4. 审核通过后，所有人加入项目</p>
+                    </div>
+                  </template>
+                  <el-icon style="cursor: help; margin-left: 8px;">
+                    <QuestionFilled />
+                  </el-icon>
+                </el-tooltip>
+              </div>
+            </template>
+          </el-alert>
+        </div>
+
+        <!-- 加载状态 -->
+        <div v-if="teammatesLoading" class="loading-state">
+          <div class="loading-content">
+            <el-icon class="is-loading" :size="40"><Loading /></el-icon>
+            <p>正在为你推荐合适的队友...</p>
+          </div>
+        </div>
+
+        <!-- 空状态 -->
+        <div v-else-if="recommendedTeammates.length === 0" class="empty-state">
+          <el-empty description="暂无推荐队友">
+            <template #image>
+              <el-icon :size="80" color="#909399"><UserFilled /></el-icon>
+            </template>
+            <template #description>
+              <p>暂时没有找到合适的队友</p>
+              <p class="empty-hint">可能是因为：</p>
+              <ul class="empty-reasons">
+                <li>系统中符合条件的用户较少</li>
+                <li>匹配算法正在优化中</li>
+                <li>你可以稍后再试</li>
+              </ul>
+            </template>
+            <el-button type="primary" @click="handleLoadTeammates">
+              <el-icon><Refresh /></el-icon>
+              刷新推荐
+            </el-button>
+          </el-empty>
+        </div>
+
+        <!-- 队友列表 -->
+        <div v-else class="teammates-list">
+          <div
+            v-for="teammate in recommendedTeammates"
+            :key="teammate.userId"
+            class="teammate-item"
+            :class="{ selected: selectedTeammates.has(teammate.userId) }"
+            @click="toggleTeammateSelection(teammate)"
+          >
+            <el-checkbox
+              :model-value="selectedTeammates.has(teammate.userId)"
+              @click.stop
+              @change="toggleTeammateSelection(teammate)"
+            />
+            
+            <el-avatar
+              :size="50"
+              :src="teammate.avatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'"
+            />
+
+            <div class="teammate-info">
+              <div class="name-row">
+                <span class="name">{{ teammate.username || '未知用户' }}</span>
+                <el-tag size="small" type="primary">
+                  匹配度 {{ Math.round((teammate.score || 0) * 100) }}%
+                </el-tag>
+              </div>
+              <div class="meta">
+                <span v-if="teammate.department">{{ teammate.department }}</span>
+                <span v-if="teammate.major">{{ teammate.major }}</span>
+                <span v-if="teammate.grade">{{ teammate.grade }}年级</span>
+              </div>
+              <p v-if="teammate.bio" class="bio">{{ teammate.bio }}</p>
+              
+              <!-- 技能标签 -->
+              <div v-if="teammate.skills && teammate.skills.length > 0" class="skills">
+                <el-tag
+                  v-for="skill in teammate.skills.slice(0, 3)"
+                  :key="skill"
+                  size="small"
+                  type="info"
+                  effect="plain"
+                >
+                  {{ skill }}
+                </el-tag>
+                <el-tag v-if="teammate.skills.length > 3" size="small" type="info" effect="plain">
+                  +{{ teammate.skills.length - 3 }}
+                </el-tag>
+              </div>
+            </div>
+
+            <div class="match-score">
+              <el-progress
+                type="circle"
+                :percentage="Math.round((teammate.score || 0) * 100)"
+                :width="60"
+                :color="getScoreColor((teammate.score || 0) * 100)"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- 申请说明 -->
+        <div v-if="recommendedTeammates.length > 0" class="application-message">
+          <el-form-item label="申请说明">
+            <el-input
+              v-model="teamApplicationMessage"
+              type="textarea"
+              :rows="3"
+              placeholder="向项目创建者说明你们团队的优势和为什么想加入这个项目..."
+              maxlength="500"
+              show-word-limit
+            />
+          </el-form-item>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <div class="selected-count">
+            已选择 {{ selectedTeammates.size }} 人
+          </div>
+          <div>
+            <el-button @click="findTeammatesDialogVisible = false">取消</el-button>
+            <el-button
+              type="primary"
+              :disabled="selectedTeammates.size === 0"
+              :loading="teamApplying"
+              @click="handleTeamApply"
+            >
+              一起申请（{{ selectedTeammates.size + 1 }}人）
+            </el-button>
+          </div>
+        </div>
+      </template>
+    </el-dialog>
+
+    <!-- 候选人详情对话框（与人才广场复用同一组件） -->
+    <TalentDetailDialog
+      v-model="showCandidateDetailDialog"
+      :talent="selectedCandidate"
+    />
+
+    <!-- 举报对话框 -->
+    <ReportDialog
+      v-if="project"
+      ref="reportDialogRef"
+      :target-type="TargetType.PROJECT"
+      :target-id="project.id"
+      :target-name="project.title"
+      @success="handleReportSuccess"
+    />
+
+    <!-- 举报评论对话框 -->
+    <ReportDialog
+      v-if="reportingComment"
+      ref="commentReportDialogRef"
+      :target-type="TargetType.COMMENT"
+      :target-id="reportingComment.id"
+      :target-name="`${reportingComment.nickname || reportingComment.username || '用户'}的评论`"
+      @success="handleCommentReportSuccess"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Edit, Delete, Star, InfoFilled, WarningFilled, QuestionFilled } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, Star, InfoFilled, WarningFilled, QuestionFilled, UserFilled, ArrowUp, Loading, Calendar, Clock, Connection, Refresh } from '@element-plus/icons-vue'
 import { 
   getProjectDetail, 
   applyProject, 
@@ -589,13 +1086,22 @@ import {
   createProjectMilestone,
   updateProjectMilestone,
   deleteProjectMilestone,
-  updateProject
+  updateProject,
+  getMatchedCandidatesForProject,
+  getProjectSkillRequirements,
+  getProjectTimeSlots,
+  teamApplyProject
 } from '../../api/project'
+import { getRecommendedTeammates } from '../../api/matching'
+import type { TeamApplicationRequest } from '../../api/project'
 import { useAuthStore } from '../../store/auth'
 import RichTextEditor from '@/components/common/RichTextEditor.vue'
 import EditProjectDialog from '@/components/project/EditProjectDialog.vue'
 import CompleteProjectDialog from '@/components/project/CompleteProjectDialog.vue'
-import type { Project, ProjectComment, ProjectMilestone } from '../../types/project'
+import TalentDetailDialog from '@/components/talent/TalentDetailDialog.vue'
+import ReportDialog from '@/components/report/ReportDialog.vue'
+import { TargetType } from '@/api/report'
+import type { Project, ProjectComment, ProjectMilestone, ProjectSkillRequirement } from '../../types/project'
 import type { TeamMember } from '../../types/team'
 
 const router = useRouter()
@@ -604,12 +1110,27 @@ const authStore = useAuthStore()
 const project = ref<Project | null>(null)
 const members = ref<TeamMember[]>([])
 const membersLoading = ref(false)
+const skillRequirements = ref<ProjectSkillRequirement[]>([])
+const skillRequirementsLoading = ref(false)
+const timeSlots = ref<any[]>([])
+const timeSlotsLoading = ref(false)
 
 const editProjectDialogVisible = ref(false)
 const completeDialogVisible = ref(false)
+const reportDialogRef = ref<InstanceType<typeof ReportDialog> | null>(null)
+
+// 举报评论相关
+const commentReportDialogRef = ref<InstanceType<typeof ReportDialog> | null>(null)
+const reportingComment = ref<ProjectComment | null>(null)
+
 const canEditProject = computed(() => {
   const userId = authStore.user?.id
   if (!userId || !project.value) return false
+
+  // 已完成或已归档的项目不可编辑
+  if (project.value.status === 'COMPLETED' || project.value.status === 'ARCHIVED') {
+    return false
+  }
 
   // 项目创建者一定可编辑
   if (project.value.creatorId === userId) return true
@@ -662,7 +1183,7 @@ const canApplyProject = computed(() => {
   if (project.value.creatorId === user.id) return false
   
   // 导师和管理员不能申请项目
-  const userRoles = user.roles || []
+  const userRoles = (user.roles || []) as string[]
   if (userRoles.includes('MENTOR') || userRoles.includes('ADMIN')) return false
   
   // 已经是项目成员的不能再申请
@@ -670,6 +1191,37 @@ const canApplyProject = computed(() => {
   if (isMember) return false
   
   return true
+})
+
+// 是否可以推荐候选人（只有项目创建者且项目在招募中）
+const canRecommendCandidates = computed(() => {
+  const userId = authStore.user?.id
+  if (!userId || !project.value) return false
+  
+  // 只有项目创建者可以查看推荐候选人
+  if (project.value.creatorId !== userId) return false
+  
+  // 只有招募中的项目可以推荐候选人
+  if (project.value.status !== 'RECRUITING') return false
+  
+  return true
+})
+
+// 需要评价的成员（排除当前用户自己）
+const projectMembersForEvaluation = computed(() => {
+  const currentUserId = authStore.user?.id
+  if (!currentUserId) return []
+  
+  return members.value
+    .filter((m: any) => {
+      const memberId = m.userId ?? m.id
+      return memberId !== currentUserId
+    })
+    .map((m: any) => ({
+      userId: m.userId ?? m.id,
+      userName: m.username || m.userName || '未知用户',
+      realName: m.realName
+    }))
 })
 
 // 里程碑
@@ -827,17 +1379,6 @@ const milestoneProgressDetail = computed(() => {
   }
 })
 
-const projectDurationText = computed(() => {
-  if (!project.value) return '未设置'
-  if (project.value.startDate && project.value.endDate) {
-    return `${project.value.startDate} ~ ${project.value.endDate}`
-  }
-  if (project.value.expectedDuration) {
-    return `约 ${project.value.expectedDuration} 天`
-  }
-  return '未设置'
-})
-
 const progressStatus = computed(() => {
   if (!project.value) return ''
   if (project.value.status === 'COMPLETED') return 'success'
@@ -908,8 +1449,31 @@ const getProjectTypeText = (type: string) => {
   return texts[type] || type
 }
 
-const formatDate = (dateStr: string) => {
-  return new Date(dateStr).toLocaleString('zh-CN')
+const formatDate = (date: string | Date) => {
+  const d = typeof date === 'string' ? new Date(date) : date
+  return d.toLocaleString('zh-CN')
+}
+
+// 获取技能等级文本
+const getLevelText = (level: string) => {
+  const levelMap: Record<string, string> = {
+    'BEGINNER': '入门',
+    'INTERMEDIATE': '熟练',
+    'ADVANCED': '高级',
+    'EXPERT': '精通'
+  }
+  return levelMap[level] || level
+}
+
+// 获取技能等级标签类型
+const getLevelType = (level: string): '' | 'success' | 'info' | 'warning' | 'danger' => {
+  const typeMap: Record<string, '' | 'success' | 'info' | 'warning' | 'danger'> = {
+    'BEGINNER': 'info',      // 灰色 - 入门
+    'INTERMEDIATE': '',      // 默认色 - 熟练
+    'ADVANCED': 'warning',   // 橙色 - 高级
+    'EXPERT': 'success'      // 绿色 - 精通
+  }
+  return typeMap[level] || ''
 }
 
 const isProjectOwner = computed(() => {
@@ -927,8 +1491,11 @@ const handleBack = () => {
 
 const handleProjectUpdated = async () => {
   try {
-    const projectId = ensureProjectId()
-    await loadProjectDetail(projectId)
+    await loadProjectDetail()
+    // 重新加载技能需求
+    if (project.value) {
+      await loadSkillRequirements(project.value.id)
+    }
     ElMessage.success('项目已更新')
   } catch (e) {
     // ignore
@@ -939,7 +1506,49 @@ const openEditProject = () => {
   editProjectDialogVisible.value = true
 }
 
+// 举报项目
+const handleReportProject = () => {
+  if (reportDialogRef.value && project.value) {
+    reportDialogRef.value.open()
+  }
+}
+
+const handleReportSuccess = () => {
+  ElMessage.success('举报提交成功，我们会尽快处理')
+}
+
+// 举报评论
+const handleReportComment = (comment: ProjectComment) => {
+  reportingComment.value = comment
+  nextTick(() => {
+    if (commentReportDialogRef.value) {
+      commentReportDialogRef.value.open()
+    }
+  })
+}
+
+const handleCommentReportSuccess = () => {
+  ElMessage.success('举报提交成功，我们会尽快处理')
+  reportingComment.value = null
+}
+
+const loadMembers = async () => {
+  const projectId = ensureProjectId()
+  membersLoading.value = true
+  try {
+    const memberList = await getProjectMembers(projectId)
+    members.value = memberList || []
+  } catch (e) {
+    console.error(e)
+  } finally {
+    membersLoading.value = false
+  }
+}
+
 const openCompleteDialog = async () => {
+  // 先加载团队成员
+  if (!project.value) return
+  
   try {
     await ElMessageBox.confirm(
       '完成项目后将无法撤销，项目状态将变为"已完成"。确定要完成此项目吗？',
@@ -951,6 +1560,12 @@ const openCompleteDialog = async () => {
         distinguishCancelAndClose: true
       }
     )
+    
+    // 加载团队成员（如果还没加载）
+    if (members.value.length === 0) {
+      await loadMembers()
+    }
+    
     completeDialogVisible.value = true
   } catch (error) {
     // 用户取消操作
@@ -1033,34 +1648,328 @@ const handleApply = async () => {
   }
 }
 
-const loadProjectDetail = async () => {
+// ==================== 找队友一起申请功能 ====================
+const findTeammatesDialogVisible = ref(false)
+const recommendedTeammates = ref<any[]>([])
+const teammatesLoading = ref(false)
+const selectedTeammates = ref<Set<number>>(new Set())
+const teamApplicationMessage = ref('')
+const teamApplying = ref(false)
+
+// 打开找队友对话框
+const handleFindTeammates = async () => {
+  findTeammatesDialogVisible.value = true
+  selectedTeammates.value = new Set()
+  teamApplicationMessage.value = ''
+  
+  // 加载推荐队友
+  await handleLoadTeammates()
+}
+
+// 加载推荐队友
+const handleLoadTeammates = async () => {
+  teammatesLoading.value = true
+  
+  try {
+    const data = await getRecommendedTeammates(20)
+    
+    if (data && Array.isArray(data)) {
+      recommendedTeammates.value = data
+      if (data.length > 0) {
+        ElMessage.success(`为你找到 ${data.length} 位推荐队友`)
+      } else {
+        ElMessage.info('暂无推荐队友')
+      }
+    } else {
+      recommendedTeammates.value = []
+      ElMessage.warning('队友数据格式异常')
+    }
+  } catch (error) {
+    console.error('加载推荐队友失败:', error)
+    recommendedTeammates.value = []
+    ElMessage.error('加载推荐队友失败')
+  } finally {
+    teammatesLoading.value = false
+  }
+}
+
+// 切换队友选择
+const toggleTeammateSelection = (teammate: any) => {
+  const userId = teammate.userId
+  if (selectedTeammates.value.has(userId)) {
+    selectedTeammates.value.delete(userId)
+  } else {
+    selectedTeammates.value.add(userId)
+  }
+  // 触发响应式更新
+  selectedTeammates.value = new Set(selectedTeammates.value)
+}
+
+// 团队申请
+const handleTeamApply = async () => {
+  if (!project.value) return
+  if (selectedTeammates.value.size === 0) {
+    ElMessage.warning('请至少选择一位队友')
+    return
+  }
+  
+  teamApplying.value = true
+  
+  try {
+    const message = teamApplicationMessage.value || '希望和队友一起加入该项目'
+    const teammateIds = Array.from(selectedTeammates.value)
+    
+    // 构建团队申请请求
+    const request: TeamApplicationRequest = {
+      applicantIds: [authStore.user!.id, ...teammateIds],
+      message: message
+    }
+    
+    // 调用真正的团队申请接口
+    await teamApplyProject(project.value.id, request)
+    
+    ElMessage.success(`团队申请已提交！你和 ${selectedTeammates.value.size} 位队友的申请正在等待队友确认和项目审核`)
+    findTeammatesDialogVisible.value = false
+    
+    // 清空选择
+    selectedTeammates.value = new Set()
+    teamApplicationMessage.value = ''
+  } catch (error) {
+    console.error('团队申请失败:', error)
+    ElMessage.error('申请失败，请稍后重试')
+  } finally {
+    teamApplying.value = false
+  }
+}
+// ==================== 找队友一起申请功能结束 ====================
+
+
+const handleRecommendCandidates = () => {
+  if (!project.value) return
+  // 滚动到候选人区域并展开
+  handleLoadCandidates()
+  // 平滑滚动到候选人区域
+  setTimeout(() => {
+    const section = document.querySelector('.recommended-candidates')
+    if (section) {
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, 100)
+}
+
+// 候选人推荐相关状态
+const showCandidates = ref(false)
+const candidates = ref<any[]>([])
+const candidatesLoading = ref(false)
+const candidatesSection = ref<HTMLElement | null>(null)
+
+// 加载候选人
+const handleLoadCandidates = async () => {
+  if (!project.value) return
+  
+  showCandidates.value = true
+  candidatesLoading.value = true
+  
+  try {
+    const data = await getMatchedCandidatesForProject(project.value.id)
+
+    if (data && Array.isArray(data)) {
+      candidates.value = data
+      if (data.length > 0) {
+        ElMessage.success(`为项目找到 ${data.length} 位匹配候选人`)
+      } else {
+        ElMessage.info('暂无匹配候选人')
+      }
+    } else {
+      candidates.value = []
+      ElMessage.warning('候选人数据格式异常')
+    }
+  } catch (error) {
+    console.error('加载候选人失败:', error)
+    candidates.value = []
+    ElMessage.error('加载候选人失败')
+  } finally {
+    candidatesLoading.value = false
+  }
+}
+
+// 收起候选人区域
+const handleCollapseCandidates = () => {
+  showCandidates.value = false
+}
+
+// 邀请候选人
+const handleInviteCandidate = (candidate: any) => {
+  ElMessage.info('邀请功能开发中...')
+  console.log('邀请候选人:', candidate)
+}
+
+// 候选人详情对话框（与人才广场共用同一组件）
+const showCandidateDetailDialog = ref(false)
+const selectedCandidate = ref<any>(null)
+
+// 查看候选人详情
+const handleViewCandidateDetail = (candidate: any) => {
+  selectedCandidate.value = candidate
+  showCandidateDetailDialog.value = true
+}
+
+// 获取匹配度颜色
+const getScoreColor = (score: number) => {
+  if (score >= 80) return '#67c23a'
+  if (score >= 60) return '#e6a23c'
+  return '#f56c6c'
+}
+
+const getConfidenceText = (level?: string) => {
+  if (level === 'HIGH') return '高'
+  if (level === 'MEDIUM') return '中'
+  return '低'
+}
+
+const getConfidenceTagType = (level?: string) => {
+  if (level === 'HIGH') return 'success'
+  if (level === 'MEDIUM') return 'warning'
+  return 'info'
+}
+
+const getRiskText = (level?: string) => {
+  if (level === 'HIGH') return '高'
+  if (level === 'MEDIUM') return '中'
+  return '低'
+}
+
+const getRiskTagType = (level?: string) => {
+  if (level === 'HIGH') return 'danger'
+  if (level === 'MEDIUM') return 'warning'
+  return 'success'
+}
+
+// 格式化协作历史得分（检查是否有真实数据）
+const formatCollaborationScore = (candidate: any) => {
+  const score = candidate.breakdown?.collaboration || 0
+  const percentage = Math.round(score * 100)
+  
+  // 检查是否接近50%（默认值），且没有真实数据
+  // 如果得分在48%-52%之间，且候选人数据中没有评价和协作历史，显示"暂无数据"
+  if (percentage >= 48 && percentage <= 52) {
+    // 检查候选人是否有真实的协作数据
+    const hasEvaluations = candidate.evaluations && 
+      (candidate.evaluations.avg_tech_contribution > 0 || 
+       candidate.evaluations.avg_collaboration > 0 || 
+       candidate.evaluations.avg_task_completion > 0)
+    
+    const hasCollabHistory = candidate.collaboration_history && 
+      candidate.collaboration_history.length > 0
+    
+    if (!hasEvaluations && !hasCollabHistory) {
+      return '暂无数据'
+    }
+  }
+  
+  return `${percentage}%`
+}
+
+// 带重试机制的数据加载
+const loadProjectDetailWithRetry = async (retries = 2): Promise<void> => {
   const projectId = Number(route.params.id)
   if (!projectId) return
 
-  try {
-    const res = await getProjectDetail(projectId)
-    project.value = res as unknown as Project
-
-    // 加载项目成员
-    membersLoading.value = true
+  for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const memberList = await getProjectMembers(projectId)
-      members.value = memberList || []
-    } catch (e) {
-      console.error(e)
-    } finally {
-      membersLoading.value = false
+      // 并行加载所有数据，提升加载速度
+      const [projectRes, membersRes, commentsRes, milestonesRes, skillReqRes, timeSlotsRes] = await Promise.allSettled([
+        getProjectDetail(projectId),
+        loadMembers(),
+        loadComments(projectId),
+        loadMilestones(projectId),
+        loadSkillRequirements(projectId),
+        loadTimeSlots(projectId)
+      ])
+
+      // 处理项目详情加载结果
+      if (projectRes.status === 'fulfilled') {
+        project.value = projectRes.value as unknown as Project
+      } else {
+        throw projectRes.reason
+      }
+
+      // 如果其他数据加载失败，记录但不阻塞页面显示
+      if (membersRes.status === 'rejected') {
+        console.warn('加载项目成员失败:', membersRes.reason)
+      }
+      if (commentsRes.status === 'rejected') {
+        console.warn('加载评论失败:', commentsRes.reason)
+      }
+      if (milestonesRes.status === 'rejected') {
+        console.warn('加载里程碑失败:', milestonesRes.reason)
+      }
+      if (skillReqRes.status === 'rejected') {
+        console.warn('加载技能需求失败:', skillReqRes.reason)
+      }
+      if (timeSlotsRes.status === 'rejected') {
+        console.warn('加载时间段需求失败:', timeSlotsRes.reason)
+      }
+
+      return // 成功则返回
+    } catch (error) {
+      if (attempt === retries) {
+        // 最后一次重试失败
+        console.error('加载项目详情失败:', error)
+        ElMessage.error('加载项目详情失败，请刷新页面重试')
+        throw error
+      }
+      // 等待后重试（指数退避）
+      await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)))
     }
-
-    // 加载评论
-    await loadComments(projectId)
-
-    // 加载里程碑
-    await loadMilestones(projectId)
-  } catch (error) {
-    console.error(error)
-    ElMessage.error('加载项目详情失败')
   }
+}
+
+const loadProjectDetail = () => loadProjectDetailWithRetry()
+
+// 加载技能需求
+const loadSkillRequirements = async (projectId: number) => {
+  console.log('=== 加载技能需求 ===')
+  console.log('项目ID:', projectId)
+  skillRequirementsLoading.value = true
+  try {
+    const data = await getProjectSkillRequirements(projectId)
+    console.log('接收到的技能需求数据:', data)
+    console.log('技能需求数量:', data?.length || 0)
+    skillRequirements.value = data || []
+  } catch (error) {
+    console.error('加载技能需求失败:', error)
+    skillRequirements.value = []
+  } finally {
+    skillRequirementsLoading.value = false
+  }
+}
+
+// 加载时间段需求
+const loadTimeSlots = async (projectId: number) => {
+  console.log('=== 加载时间段需求 ===')
+  console.log('项目ID:', projectId)
+  timeSlotsLoading.value = true
+  try {
+    const data = await getProjectTimeSlots(projectId)
+    console.log('接收到的时间段数据:', data)
+    console.log('时间段数量:', data?.length || 0)
+    timeSlots.value = data || []
+  } catch (error) {
+    console.error('加载时间段需求失败:', error)
+    timeSlots.value = []
+  } finally {
+    timeSlotsLoading.value = false
+  }
+}
+
+// 获取星期标签
+const getDayLabel = (dayOfWeek: number): string => {
+  const dayLabels: Record<number, string> = {
+    1: '周一', 2: '周二', 3: '周三', 4: '周四',
+    5: '周五', 6: '周六', 7: '周日', 0: '周日'
+  }
+  return dayLabels[dayOfWeek] || `星期${dayOfWeek}`
 }
 
 const loadMilestones = async (projectId: number) => {
@@ -1644,6 +2553,247 @@ onMounted(() => {
       }
     }
 
+    .recommended-candidates {
+      margin-top: 24px;
+
+      .candidates-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+
+        .title-area {
+          h3 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+          }
+
+          .hint {
+            display: block;
+            margin-top: 4px;
+            font-size: 12px;
+            color: var(--el-text-color-secondary);
+          }
+        }
+      }
+
+      .candidates-content {
+        margin-top: 16px;
+      }
+
+      .loading-state,
+      .empty-state {
+        padding: 40px 0;
+        text-align: center;
+      }
+
+      .candidates-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+        gap: 20px;
+      }
+
+      .candidate-card {
+        border: 2px solid #e8eaed;
+        border-radius: 16px;
+        padding: 24px;
+        display: flex;
+        gap: 24px;
+        transition: all 0.3s ease;
+        background: #ffffff;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+
+        &:hover {
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+          transform: translateY(-4px);
+          border-color: #409eff;
+        }
+
+        .card-left {
+          flex-shrink: 0;
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
+          gap: 16px;
+          width: 120px;
+
+          .match-score {
+            .percentage-content {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+
+              .percentage-value {
+                font-size: 20px;
+                font-weight: 800;
+                color: var(--el-text-color-primary);
+              }
+
+              .percentage-label {
+                font-size: 12px;
+                color: var(--el-text-color-secondary);
+                margin-top: 4px;
+                font-weight: 600;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+
+                .score-help-icon {
+                  font-size: 12px;
+                  color: var(--el-text-color-placeholder);
+                  cursor: help;
+                }
+              }
+            }
+          }
+          
+          .card-actions {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+            margin-top: 4px;
+            
+            .el-button {
+              width: 100%;
+            }
+
+            .el-button + .el-button {
+              margin-left: 0;
+            }
+          }
+        }
+
+        .candidate-info {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+
+          .candidate-name {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--el-text-color-primary);
+          }
+
+          .candidate-meta {
+            display: flex;
+            gap: 8px;
+            font-size: 13px;
+            flex-wrap: wrap;
+
+            span {
+              padding: 6px 14px;
+              background: linear-gradient(135deg, #f5f7fa 0%, #e8eaed 100%);
+              border-radius: 20px;
+              color: #606266;
+              font-weight: 600;
+              border: 1px solid #e0e3e8;
+            }
+          }
+
+          .candidate-bio {
+            margin: 0;
+            font-size: 14px;
+            color: var(--el-text-color-regular);
+            line-height: 1.6;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+          }
+
+          .match-details {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+
+            .detail-item {
+              display: grid;
+              grid-template-columns: 80px 1fr 50px;
+              align-items: center;
+              gap: 12px;
+
+              .label {
+                font-size: 13px;
+                color: var(--el-text-color-secondary);
+                font-weight: 600;
+              }
+
+              .value {
+                font-size: 14px;
+                font-weight: 700;
+                color: var(--el-text-color-primary);
+                text-align: right;
+              }
+            }
+          }
+
+          .candidate-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 2px;
+          }
+
+          .match-reason {
+            margin: 0;
+            font-size: 13px;
+            color: var(--el-text-color-regular);
+          }
+
+          .explain-summary {
+            margin: 0;
+            font-size: 13px;
+            color: var(--el-text-color-secondary);
+            line-height: 1.6;
+          }
+
+          .explain-list {
+            margin-top: 4px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: var(--el-fill-color-lighter);
+
+            .list-title {
+              font-size: 12px;
+              font-weight: 700;
+              margin-bottom: 6px;
+              color: var(--el-color-success);
+            }
+
+            ul {
+              margin: 0;
+              padding-left: 16px;
+            }
+
+            li {
+              font-size: 12px;
+              color: var(--el-text-color-regular);
+              line-height: 1.5;
+              margin-bottom: 4px;
+            }
+
+            &.warn .list-title {
+              color: var(--el-color-warning);
+            }
+
+            &.tips .list-title {
+              color: var(--el-color-primary);
+            }
+          }
+
+          .actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 4px;
+          }
+        }
+      }
+    }
+
     .project-discussion {
       margin-top: 24px;
 
@@ -1885,5 +3035,647 @@ onMounted(() => {
     }
   }
 }
+
+// 过渡动画
+.slide-fade-enter-active {
+  transition: all 0.3s ease-out;
+}
+
+.slide-fade-leave-active {
+  transition: all 0.2s cubic-bezier(1, 0.5, 0.8, 1);
+}
+
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  transform: translateY(-20px);
+  opacity: 0;
+}
+  /* ==================== 候选人详情对话框样式 ==================== */
+  .mentor-detail-dialog {
+    :deep(.el-dialog) {
+      border-radius: 24px;
+      overflow: hidden;
+      background: var(--bg-card);
+      padding: 0;
+    }
+    :deep(.el-dialog__header) { display: none; }
+    :deep(.el-dialog__body) { padding: 0; }
+  }
+
+  .mentor-detail {
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+    position: relative;
+
+    .close-btn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 10;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(0,0,0,0.1);
+      backdrop-filter: blur(8px);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-color);
+      transition: all 0.2s;
+      &:hover { background: rgba(0,0,0,0.2); transform: scale(1.1); }
+    }
+
+    .mentor-card-top {
+      padding: 40px;
+      background: linear-gradient(135deg, rgba(var(--accent-color-rgb), 0.08), rgba(var(--accent-color-rgb), 0.03));
+      display: flex;
+      gap: 32px;
+      align-items: center;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .mentor-avatar-section {
+      position: relative;
+    }
+
+    .mentor-avatar-large {
+      border: 4px solid var(--bg-card);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.1);
+    }
+
+    .mentor-rating-badge {
+      position: absolute;
+      bottom: -10px;
+      right: -10px;
+      background: #f59e0b;
+      color: #fff;
+      padding: 4px 12px;
+      border-radius: 100px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+    }
+
+    .mentor-info-section {
+      flex: 1;
+    }
+
+    .mentor-name-large { 
+      font-size: 36px; 
+      font-weight: 900; 
+      margin: 0 0 8px; 
+      color: var(--text-color); 
+    }
+    
+    .mentor-dept-large { 
+      font-size: 16px; 
+      color: var(--text-color-muted); 
+      margin: 0; 
+    }
+
+    .mentor-card-content {
+      padding: 32px 40px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .mentor-content-area {
+      padding: 32px 40px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .content-block {
+      margin-bottom: 32px;
+      .block-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        .block-title {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 18px;
+          font-weight: 800;
+          color: var(--text-color);
+          .block-icon { color: var(--accent-color); }
+        }
+      }
+      .block-content {
+        .text-content { 
+          font-size: 15px; 
+          line-height: 1.8; 
+          color: var(--text-color-muted); 
+        }
+      }
+    }
+
+    .skill-count {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-color-muted);
+    }
+
+    .skills-loading {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--text-color-muted);
+      font-size: 14px;
+    }
+
+    .skills-showcase {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      .skill-chip {
+        padding: 6px 16px;
+        border-radius: 100px;
+        background: var(--bg-body);
+        border: 1px solid var(--border-subtle);
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-color-muted);
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        
+        &:hover { 
+          transform: translateY(-2px); 
+        }
+        
+        .level-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #94a3b8;
+          flex-shrink: 0;
+        }
+        
+        &[data-level="EXPERT"] {
+          .level-dot { background: #10b981; }
+          border-color: rgba(16, 185, 129, 0.3);
+          &:hover { 
+            border-color: #10b981; 
+            color: #10b981; 
+          }
+        }
+        
+        &[data-level="ADVANCED"] {
+          .level-dot { background: var(--accent-color); }
+          border-color: rgba(var(--accent-color-rgb), 0.3);
+          &:hover { 
+            border-color: var(--accent-color); 
+            color: var(--accent-color); 
+          }
+        }
+        
+        &[data-level="INTERMEDIATE"] {
+          .level-dot { background: #94a3b8; }
+          border-color: rgba(148, 163, 184, 0.3);
+          &:hover { 
+            border-color: #94a3b8; 
+            color: #94a3b8; 
+          }
+        }
+        
+        &[data-level="BEGINNER"] {
+          .level-dot { background: #cbd5e1; }
+          border-color: rgba(203, 213, 225, 0.3);
+          &:hover { 
+            border-color: #cbd5e1; 
+            color: #cbd5e1; 
+          }
+        }
+        
+        /* 兴趣标签 */
+        &.interest-chip {
+          border-color: rgba(16, 185, 129, 0.3);
+          background: rgba(16, 185, 129, 0.05);
+          &:hover { 
+            border-color: #10b981; 
+            color: #10b981; 
+            background: rgba(16, 185, 129, 0.1);
+          }
+        }
+        
+        /* 个人特质标签 */
+        &.personality-chip {
+          border-color: rgba(139, 92, 246, 0.3);
+          background: rgba(139, 92, 246, 0.05);
+          &:hover { 
+            border-color: #8b5cf6; 
+            color: #8b5cf6; 
+            background: rgba(139, 92, 246, 0.1);
+          }
+        }
+        
+        /* 项目类型标签 */
+        &.type-chip {
+          border-color: rgba(245, 158, 11, 0.3);
+          background: rgba(245, 158, 11, 0.05);
+          &:hover { 
+            border-color: #f59e0b; 
+            color: #f59e0b; 
+            background: rgba(245, 158, 11, 0.1);
+          }
+        }
+      }
+    }
+
+    .no-skills {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-color-muted);
+      font-size: 14px;
+    }
+
+    .tc-intentions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      
+      .el-tag {
+        font-weight: 600;
+      }
+    }
+
+    .tc-time-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+      color: var(--text-color-muted);
+      
+      .tc-time-icon {
+        color: var(--accent-color);
+      }
+    }
+
+    .markdown-wrapper {
+      :deep(.markdown-body) {
+        font-size: 15px;
+        line-height: 1.8;
+        color: var(--text-color-muted);
+      }
+    }
+
+    .contact-info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      
+      .contact-item {
+        display: flex;
+        align-items: center;
+        padding: 12px 16px;
+        background: var(--bg-body);
+        border-radius: 8px;
+        border: 1px solid var(--border-subtle);
+        
+        .contact-label {
+          font-weight: 600;
+          color: var(--text-color);
+          margin-right: 8px;
+          flex-shrink: 0;
+        }
+        
+        .contact-value {
+          color: var(--text-color-muted);
+          flex: 1;
+          word-break: keep-all;
+          overflow-wrap: break-word;
+        }
+      }
+    }
+
+    .mentor-actions {
+      padding: 24px 40px;
+      display: flex;
+      gap: 16px;
+      border-top: 1px solid var(--border-subtle);
+      background: var(--bg-card);
+      .el-button { 
+        flex: 1; 
+        height: 52px; 
+        border-radius: 14px; 
+        font-weight: 700; 
+        font-size: 16px; 
+      }
+    }
+  }
+
+  [data-theme='dark'] .mentor-detail {
+    .mentor-card-top { background: linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)); }
+    .close-btn { background: rgba(255,255,255,0.05); &:hover { background: rgba(255,255,255,0.1); } }
+  }
+
+  // 技能需求样式
+  .skill-requirements-section {
+    h3 {
+      margin-bottom: 16px;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-color-primary);
+    }
+
+    .loading-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 24px;
+      color: var(--text-color-muted);
+      font-size: 14px;
+    }
+
+    .skill-requirements-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .skill-requirement-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background: var(--bg-body);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      transition: all 0.2s;
+
+      &:hover {
+        border-color: var(--primary-color);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      }
+
+      &.required {
+        border-left: 3px solid var(--el-color-danger);
+      }
+
+      .skill-name {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 15px;
+        font-weight: 500;
+        color: var(--text-color-primary);
+      }
+
+      .skill-level {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        .level-label {
+          font-size: 13px;
+          color: var(--text-color-muted);
+        }
+      }
+    }
+
+    .no-requirements {
+      padding: 24px;
+      text-align: center;
+    }
+  }
+
+  // 时间段需求样式
+  .time-slots-section {
+    h3 {
+      margin-bottom: 16px;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-color-primary);
+    }
+
+    .time-slots-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .time-slots-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 12px;
+    }
+
+    .time-slot-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--bg-body);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      transition: all 0.2s;
+
+      &:hover {
+        border-color: var(--primary-color);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      }
+
+      .slot-day {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 80px;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-color-primary);
+      }
+
+      .slot-time {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        color: var(--text-color-muted);
+      }
+    }
+
+    .time-slots-tip {
+      margin-top: 12px;
+      padding: 12px;
+      background: var(--bg-muted);
+      border-radius: 6px;
+      font-size: 13px;
+      color: var(--text-color-muted);
+      line-height: 1.6;
+    }
+  }
 </style>
 
+// ==================== 找队友一起申请对话框样式 ====================
+.find-teammates-dialog {
+  .dialog-header {
+    margin-bottom: 20px;
+    
+    .alert-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+  }
+
+  .loading-state {
+    padding: 60px 0;
+    text-align: center;
+    
+    .loading-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      
+      p {
+        margin: 0;
+        font-size: 14px;
+        color: var(--text-color-secondary);
+      }
+    }
+  }
+
+  .empty-state {
+    padding: 40px 0;
+    text-align: center;
+    
+    .empty-hint {
+      margin: 16px 0 8px 0;
+      font-size: 13px;
+      color: var(--text-color-muted);
+    }
+    
+    .empty-reasons {
+      list-style: none;
+      padding: 0;
+      margin: 8px 0 20px 0;
+      
+      li {
+        font-size: 13px;
+        color: var(--text-color-secondary);
+        line-height: 1.8;
+        
+        &:before {
+          content: '•';
+          margin-right: 8px;
+          color: var(--text-color-muted);
+        }
+      }
+    }
+  }
+
+  .teammates-list {
+    max-height: 500px;
+    overflow-y: auto;
+    margin-bottom: 20px;
+
+    .teammate-item {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px;
+      border: 2px solid var(--border-subtle);
+      border-radius: 12px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+
+      &:hover {
+        border-color: var(--primary-color);
+        background: var(--bg-elevated-soft);
+        transform: translateX(4px);
+      }
+
+      &.selected {
+        border-color: var(--primary-color);
+        background: rgba(64, 158, 255, 0.05);
+        box-shadow: 0 2px 8px rgba(64, 158, 255, 0.15);
+      }
+
+      .teammate-info {
+        flex: 1;
+        min-width: 0;
+
+        .name-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 8px;
+
+          .name {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-color);
+          }
+        }
+
+        .meta {
+          display: flex;
+          gap: 12px;
+          font-size: 13px;
+          color: var(--text-color-muted);
+          margin-bottom: 8px;
+
+          span {
+            &:not(:last-child)::after {
+              content: '•';
+              margin-left: 12px;
+              color: var(--border-subtle);
+            }
+          }
+        }
+
+        .bio {
+          font-size: 13px;
+          color: var(--text-color-secondary);
+          line-height: 1.5;
+          margin: 0 0 8px 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+        }
+        
+        .skills {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-top: 8px;
+        }
+      }
+
+      .match-score {
+        flex-shrink: 0;
+      }
+    }
+  }
+
+  .application-message {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-subtle);
+  }
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  .selected-count {
+    font-size: 14px;
+    color: var(--text-color-secondary);
+    font-weight: 500;
+  }
+}

@@ -63,13 +63,6 @@ const menuItems = computed(() => {
       { key: 'competition-manage', title: '比赛管理', path: '/competition/manage' },
       { key: 'competition-templates', title: '比赛模板', path: '/competition/templates' }
     ];
-
-    const managementChildren = [
-      { key: 'admin-dashboard', title: '数据统计', path: '/admin' },
-      { key: 'user-manage', title: '用户管理', path: '/admin/users' },
-      { key: 'content-manage', title: '内容管理', path: '/admin/content' },
-      { key: 'system-settings', title: '系统设置', path: '/admin/settings' },
-    ];
     
     // 内容管理子菜单（合并举报、标签、公告、新手保护、院系专业）
     const contentChildren = [
@@ -88,6 +81,7 @@ const menuItems = computed(() => {
     ];
 
     baseItems = [
+      // 核心功能区（高频使用）
       {
         key: 'ecosystem',
         title: '综合广场',
@@ -100,6 +94,7 @@ const menuItems = computed(() => {
         icon: DocumentChecked,
         path: '/admin'
       },
+      // 管理功能区（按重要性排序）
       {
         key: 'user-manage',
         title: '用户管理',
@@ -114,7 +109,7 @@ const menuItems = computed(() => {
       },
       {
         key: 'competition',
-        title: '比赛',
+        title: '比赛管理',
         icon: Trophy,
         path: '/competition',
         children: competitionChildren
@@ -126,6 +121,7 @@ const menuItems = computed(() => {
         path: '/admin/content',
         children: contentChildren
       },
+      // 系统配置区（低频但重要）
       {
         key: 'system-settings',
         title: '系统设置',
@@ -133,6 +129,7 @@ const menuItems = computed(() => {
         path: '/admin/settings',
         children: settingsChildren
       },
+      // 个人设置（放在最后）
       {
         key: 'account-settings',
         title: '账户设置',
@@ -141,14 +138,22 @@ const menuItems = computed(() => {
       }
     ];
   } else {
-    // 普通用户菜单
+    // 普通用户和导师菜单
     const isMentor = authStore.hasRole(['MENTOR'])
     
     baseItems = [
+      // 核心功能区（高频使用）
       { key: 'ecosystem', title: '综合广场', icon: Compass, path: '/ecosystem' },
-      { key: 'my-projects', title: '我的项目', icon: Document, path: '/projects/my' },
-      { key: 'team', title: '团队', icon: Connection, path: '/team' },
+      { key: 'team', title: '我的团队', icon: Connection, path: '/team' },
     ];
+    
+    // 只有普通用户才显示项目相关菜单（导师不能创建项目，也不需要项目推荐）
+    if (!isMentor) {
+      baseItems.push(
+        { key: 'my-projects', title: '我的项目', icon: Document, path: '/projects/my' },
+        { key: 'recommended-projects', title: '项目推荐', icon: Trophy, path: '/project/recommended' }
+      );
+    }
   }
 
   // 通用菜单 (管理员和导师的 '我的' 已在 '账户' 分组中)
@@ -156,16 +161,19 @@ const menuItems = computed(() => {
   const commonItems = isAdmin
     ? [
         // 管理员不需要"我的项目"，因为管理员通常不参与项目
-        { key: 'messages', title: '消息', icon: ChatDotRound, path: '/messages' }
+        // 消息功能已废弃，整合到团队聊天中
+        // { key: 'messages', title: '消息', icon: ChatDotRound, path: '/messages' }
       ]
     : isMentor
     ? [
         // 导师不能创建项目，所以不显示"我的项目"
-        { key: 'messages', title: '消息', icon: ChatDotRound, path: '/messages' },
+        // 消息功能已废弃，整合到团队聊天中
+        // { key: 'messages', title: '消息', icon: ChatDotRound, path: '/messages' },
         { key: 'profile', title: '我的', icon: User, path: '/profile' }
       ]
     : [
-        { key: 'messages', title: '消息', icon: ChatDotRound, path: '/messages' },
+        // 消息功能已废弃，整合到团队聊天中
+        // { key: 'messages', title: '消息', icon: ChatDotRound, path: '/messages' },
         { key: 'profile', title: '我的', icon: User, path: '/profile' }
       ];
 
@@ -195,17 +203,28 @@ const menuItems = computed(() => {
     if (mentorChildren.length > 0) {
       const mentorItem = {
         key: 'mentor',
-        title: '导师',
+        title: '导师中心',
         icon: School,
         path: mentorChildren[0].path, // 使用第一个子菜单作为默认路径
         children: mentorChildren
       };
       
-      const competitionIndex = finalItems.findIndex(item => item.key === 'competition');
-      if (competitionIndex !== -1) {
-        finalItems.splice(competitionIndex + 1, 0, mentorItem);
+      // 管理员：插入到内容管理之后
+      // 普通导师：插入到团队之后（因为导师没有项目菜单）
+      if (isAdmin) {
+        const contentIndex = finalItems.findIndex(item => item.key === 'content-manage');
+        if (contentIndex !== -1) {
+          finalItems.splice(contentIndex + 1, 0, mentorItem);
+        } else {
+          finalItems.push(mentorItem);
+        }
       } else {
-        finalItems.push(mentorItem);
+        const teamIndex = finalItems.findIndex(item => item.key === 'team');
+        if (teamIndex !== -1) {
+          finalItems.splice(teamIndex + 1, 0, mentorItem);
+        } else {
+          finalItems.push(mentorItem);
+        }
       }
     }
   }

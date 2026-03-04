@@ -55,10 +55,10 @@ const getLevelType = (level?: string) => {
 
 const getLevelText = (level?: string) => {
   const texts: Record<string, string> = {
-    NEWBIE: '新手 (0-50)',
-    RELIABLE: '可靠 (51-150)',
-    EXCELLENT: '优秀 (151-300)',
-    OUTSTANDING: '卓越 (300+)',
+    NEWBIE: '新手 (<60)',
+    RELIABLE: '可靠 (60-79)',
+    EXCELLENT: '优秀 (80-94)',
+    OUTSTANDING: '卓越 (95+)',
   }
   return texts[level || 'NEWBIE']
 }
@@ -75,18 +75,22 @@ const getProgressColor = (level?: string) => {
 
 const getCreditProgress = (totalCredit?: number) => {
   const score = totalCredit || 0
-  if (score < 51) return (score / 50) * 100
-  if (score < 151) return ((score - 50) / 100) * 100
-  if (score < 301) return ((score - 150) / 150) * 100
+  // NEWBIE: 0-59 (60分满)
+  if (score < 60) return (score / 60) * 100
+  // RELIABLE: 60-79 (20分满)
+  if (score < 80) return ((score - 60) / 20) * 100
+  // EXCELLENT: 80-94 (15分满)
+  if (score < 95) return ((score - 80) / 15) * 100
+  // OUTSTANDING: 95+ (已满级)
   return 100
 }
 
 const getNextLevelGap = (totalCredit?: number) => {
   const score = totalCredit || 0
-  if (score < 51) return 51 - score
-  if (score < 151) return 151 - score
-  if (score < 301) return 301 - score
-  return 0
+  if (score < 60) return 60 - score
+  if (score < 80) return 80 - score
+  if (score < 95) return 95 - score
+  return 0 // 已达到最高等级
 }
 
 const loadCredit = async () => {

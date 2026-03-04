@@ -8,19 +8,24 @@ import com.teamup.server.common.enums.ProjectStatus;
 import com.teamup.server.common.exception.BusinessException;
 import com.teamup.server.modules.project.entity.Project;
 import com.teamup.server.modules.project.entity.ProjectApplication;
+import com.teamup.server.modules.project.entity.ProjectSkillRequirement;
+import com.teamup.server.modules.project.entity.ProjectTimeSlot;
 import com.teamup.server.modules.project.mapper.ProjectMapper;
 import com.teamup.server.modules.project.mapper.ProjectApplicationMapper;
 import com.teamup.server.modules.project.mapper.ProjectRecommendationMapper;
+import com.teamup.server.modules.project.mapper.ProjectSkillRequirementMapper;
+import com.teamup.server.modules.project.mapper.ProjectTimeSlotMapper;
 import com.teamup.server.modules.project.service.ProjectService;
+import com.teamup.server.modules.tag.entity.Tag;
+import com.teamup.server.modules.tag.mapper.TagMapper;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -37,28 +42,43 @@ public class ProjectServiceImpl implements ProjectService {
     private final ProjectMapper projectMapper;
     private final ProjectApplicationMapper applicationMapper;
     private final ProjectRecommendationMapper recommendationMapper;
+    private final ProjectSkillRequirementMapper skillRequirementMapper;
+    private final ProjectTimeSlotMapper timeSlotMapper;
+    private final TagMapper tagMapper;
     private final StringRedisTemplate redisTemplate;
     private final com.teamup.server.modules.notification.service.NotificationService notificationService;
     private final com.teamup.server.modules.user.service.UserService userService;
+    private final com.teamup.server.modules.user.service.CreditService creditService;
     private final com.teamup.server.modules.team.service.TeamService teamService;
     private final com.teamup.server.modules.team.service.TeamProjectService teamProjectService;
+    private final com.teamup.server.modules.user.service.ProjectHistoryService projectHistoryService;
     
-    public ProjectServiceImpl(ProjectMapper projectMapper, 
+    public ProjectServiceImpl(ProjectMapper projectMapper,
                               ProjectApplicationMapper applicationMapper,
                               ProjectRecommendationMapper recommendationMapper,
+                              ProjectSkillRequirementMapper skillRequirementMapper,
+                              ProjectTimeSlotMapper timeSlotMapper,
+                              TagMapper tagMapper,
                               StringRedisTemplate redisTemplate,
                               com.teamup.server.modules.notification.service.NotificationService notificationService,
                               com.teamup.server.modules.user.service.UserService userService,
+                              com.teamup.server.modules.user.service.CreditService creditService,
                               @org.springframework.context.annotation.Lazy com.teamup.server.modules.team.service.TeamService teamService,
-                              com.teamup.server.modules.team.service.TeamProjectService teamProjectService) {
+                              com.teamup.server.modules.team.service.TeamProjectService teamProjectService,
+                              com.teamup.server.modules.user.service.ProjectHistoryService projectHistoryService) {
         this.projectMapper = projectMapper;
         this.applicationMapper = applicationMapper;
         this.recommendationMapper = recommendationMapper;
+        this.skillRequirementMapper = skillRequirementMapper;
+        this.timeSlotMapper = timeSlotMapper;
+        this.tagMapper = tagMapper;
         this.redisTemplate = redisTemplate;
         this.notificationService = notificationService;
         this.userService = userService;
+        this.creditService = creditService;
         this.teamService = teamService;
         this.teamProjectService = teamProjectService;
+        this.projectHistoryService = projectHistoryService;
     }
     
     private static final String STATUS_PENDING = "PENDING";
@@ -69,13 +89,26 @@ public class ProjectServiceImpl implements ProjectService {
         Page<Project> pageParam = new Page<>(page, size);
         LambdaQueryWrapper<Project> wrapper = new LambdaQueryWrapper<>();
         
+        // 查询用户可见的项目ID（用户创建的 + 用户所在团队的项目）
+        final List<Long> visibleProjectIds = (userId != null) 
+            ? projectMapper.selectVisibleProjectIds(userId) 
+            : null;
+        
         // 如果没有指定状态，默认排除草稿状态（项目大厅场景）
         // 如果指定了状态，则按指定状态过滤（我的项目场景）
         if (StringUtils.hasText(status)) {
             wrapper.eq(Project::getStatus, status);
         } else {
-            // 项目大厅：排除草稿状态，只显示公开的项目
-            wrapper.ne(Project::getStatus, ProjectStatus.DRAFT.name());
+            // 项目大厅：排除草稿状态，只显示公开的项目或用户可见的项目
+            if (visibleProjectIds != null && !visibleProjectIds.isEmpty()) {
+                // 显示：非草稿的公开项目 或 用户可见的项目（包括草稿）
+                wrapper.and(w -> w.ne(Project::getStatus, ProjectStatus.DRAFT.name())
+                                  .or()
+                                  .in(Project::getId, visibleProjectIds));
+            } else {
+                // 未登录或无可见项目：只显示非草稿的公开项目
+                wrapper.ne(Project::getStatus, ProjectStatus.DRAFT.name());
+            }
         }
         
         // 类型筛选
@@ -183,7 +216,7 @@ public class ProjectServiceImpl implements ProjectService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Project createProject(Project project, Long userId) {
+    public Project createProject(Project project, Long userId, List<Map<String, Object>> skillRequirements, List<Map<String, Object>> timeSlots) {
         project.setCreatorId(userId);
         project.setStatus(ProjectStatus.DRAFT.name());  // 默认草稿状态
         project.setIsRecommended(false);
@@ -213,6 +246,16 @@ public class ProjectServiceImpl implements ProjectService {
         
         projectMapper.insert(project);
         
+        // 保存技能需求
+        if (skillRequirements != null && !skillRequirements.isEmpty()) {
+            saveSkillRequirements(project.getId(), skillRequirements);
+        }
+
+        // 保存时间段需求
+        if (timeSlots != null && !timeSlots.isEmpty()) {
+            saveTimeSlots(project.getId(), timeSlots);
+        }
+        
         // 如果使用已有团队，创建团队-项目关联
         if ("USE_EXISTING".equals(project.getTeamMode()) && project.getTeamId() != null) {
             try {
@@ -224,10 +267,68 @@ public class ProjectServiceImpl implements ProjectService {
         
         return project;
     }
+    
+    /**
+     * 保存项目技能需求
+     */
+    private void saveSkillRequirements(Long projectId, List<Map<String, Object>> skillRequirements) {
+        for (Map<String, Object> req : skillRequirements) {
+            try {
+                Long tagId = ((Number) req.get("tagId")).longValue();
+                Boolean required = (Boolean) req.get("required");
+                String proficiencyLevel = (String) req.get("proficiencyLevel");
+                
+                // 查询技能名称
+                Tag tag = tagMapper.selectById(tagId);
+                if (tag == null) {
+                    log.warn("技能标签不存在: tagId={}", tagId);
+                    continue;
+                }
+                
+                ProjectSkillRequirement entity = new ProjectSkillRequirement();
+                entity.setProjectId(projectId);
+                entity.setSkillName(tag.getName());
+                entity.setRequired(required != null ? required : false);
+                entity.setProficiencyLevel(proficiencyLevel);
+                entity.setCreatedAt(LocalDateTime.now());
+                
+                skillRequirementMapper.insert(entity);
+                log.info("保存技能需求成功: projectId={}, skillName={}, required={}, level={}", 
+                    projectId, tag.getName(), required, proficiencyLevel);
+            } catch (Exception e) {
+                log.error("保存技能需求失败: " + req, e);
+            }
+        }
+    }
+
+    /**
+     * 保存项目时间段需求
+     */
+    private void saveTimeSlots(Long projectId, List<Map<String, Object>> timeSlots) {
+        for (Map<String, Object> slot : timeSlots) {
+            try {
+                Integer dayOfWeek = ((Number) slot.get("dayOfWeek")).intValue();
+                String startTime = (String) slot.get("startTime");
+                String endTime = (String) slot.get("endTime");
+
+                ProjectTimeSlot entity = new ProjectTimeSlot();
+                entity.setProjectId(projectId);
+                entity.setDayOfWeek(dayOfWeek);
+                entity.setStartTime(LocalTime.parse(startTime));
+                entity.setEndTime(LocalTime.parse(endTime));
+                entity.setCreatedAt(LocalDateTime.now());
+
+                timeSlotMapper.insert(entity);
+                log.info("保存时间段成功: projectId={}, day={}, {}-{}", projectId, dayOfWeek, startTime, endTime);
+            } catch (Exception e) {
+                log.error("保存时间段失败: " + slot, e);
+            }
+        }
+    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void updateProject(Long id, Project project, Long userId) {
+    public void updateProject(Long id, Project project, Long userId, List<Map<String, Object>> skillRequirements, List<Map<String, Object>> timeSlots) {
         Project existingProject = projectMapper.selectById(id);
         if (existingProject == null) {
             throw new BusinessException("项目不存在");
@@ -238,10 +339,120 @@ public class ProjectServiceImpl implements ProjectService {
             throw new BusinessException(ApiErrorCode.FORBIDDEN, "无权修改此项目");
         }
         
-        project.setId(id);
-        project.setUpdatedAt(LocalDateTime.now());
-        projectMapper.updateById(project);
+        // 状态校验：已完成/已归档项目的编辑限制
+        String existingStatus = existingProject.getStatus();
+        // 是否仅做状态更新，且未携带技能/时间段更新
+        boolean onlyUpdateStatus = project.getStatus() != null
+                && project.getTitle() == null
+                && project.getProjectType() == null
+                && project.getDescription() == null
+                && project.getRequirements() == null
+                && project.getTeamSize() == null
+                && project.getWeeklyHours() == null
+                && project.getExpectedDuration() == null
+                && skillRequirements == null
+                && timeSlots == null;
         
+        // 已完成的项目：只允许从 COMPLETED -> ARCHIVED 的状态变更
+        if (ProjectStatus.COMPLETED.name().equals(existingStatus)) {
+            if (!(onlyUpdateStatus && ProjectStatus.ARCHIVED.name().equals(project.getStatus()))) {
+                throw new BusinessException("已完成的项目只能归档，不能再编辑其他信息");
+            }
+        }
+        
+        // 已归档的项目：不允许任何编辑
+        if (ProjectStatus.ARCHIVED.name().equals(existingStatus)) {
+            throw new BusinessException("已归档的项目不能再编辑");
+        }
+        
+        // 使用条件更新，避免将未传入字段置为 null，支持部分更新（如仅更新状态）
+        LambdaUpdateWrapper<Project> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.eq(Project::getId, id);
+        
+        boolean hasUpdateField = false;
+        if (project.getTitle() != null) {
+            updateWrapper.set(Project::getTitle, project.getTitle());
+            hasUpdateField = true;
+        }
+        if (project.getProjectType() != null) {
+            updateWrapper.set(Project::getProjectType, project.getProjectType());
+            hasUpdateField = true;
+        }
+        if (project.getDescription() != null) {
+            updateWrapper.set(Project::getDescription, project.getDescription());
+            hasUpdateField = true;
+        }
+        if (project.getRequirements() != null) {
+            updateWrapper.set(Project::getRequirements, project.getRequirements());
+            hasUpdateField = true;
+        }
+        if (project.getTeamSize() != null) {
+            updateWrapper.set(Project::getTeamSize, project.getTeamSize());
+            hasUpdateField = true;
+        }
+        if (project.getWeeklyHours() != null) {
+            updateWrapper.set(Project::getWeeklyHours, project.getWeeklyHours());
+            hasUpdateField = true;
+        }
+        if (project.getExpectedDuration() != null) {
+            updateWrapper.set(Project::getExpectedDuration, project.getExpectedDuration());
+            hasUpdateField = true;
+        }
+        if (project.getStatus() != null) {
+            updateWrapper.set(Project::getStatus, project.getStatus());
+            hasUpdateField = true;
+        }
+        
+        // 始终更新更新时间
+        updateWrapper.set(Project::getUpdatedAt, LocalDateTime.now());
+        
+        if (hasUpdateField) {
+            projectMapper.update(null, updateWrapper);
+        }
+        
+        // 更新技能需求
+        if (skillRequirements != null) {
+            log.info("更新项目 {} 的技能需求，共 {} 个", id, skillRequirements.size());
+            
+            // 删除旧的技能需求
+            LambdaQueryWrapper<ProjectSkillRequirement> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(ProjectSkillRequirement::getProjectId, id);
+            int deletedCount = skillRequirementMapper.delete(wrapper);
+            log.info("删除了 {} 个旧的技能需求", deletedCount);
+            
+            // 插入新的技能需求
+            for (Map<String, Object> skillReq : skillRequirements) {
+                log.info("处理技能需求: {}", skillReq);
+                String skillName = (String) skillReq.get("skillName");
+                if (skillName == null || skillName.trim().isEmpty()) {
+                    log.warn("跳过空技能名称");
+                    continue;
+                }
+                
+                ProjectSkillRequirement requirement = new ProjectSkillRequirement();
+                requirement.setProjectId(id);
+                requirement.setSkillName(skillName.trim());
+                requirement.setRequired((Boolean) skillReq.getOrDefault("isRequired", false));
+                requirement.setProficiencyLevel((String) skillReq.getOrDefault("expectedLevel", "INTERMEDIATE"));
+                requirement.setCreatedAt(LocalDateTime.now());
+                
+                int inserted = skillRequirementMapper.insert(requirement);
+                log.info("插入技能需求成功: projectId={}, skillName={}, required={}, level={}, insertResult={}", 
+                    id, skillName, requirement.getRequired(), requirement.getProficiencyLevel(), inserted);
+            }
+        } else {
+            log.info("技能需求列表为 null，不更新");
+        }
+
+        // 更新时间段需求
+        if (timeSlots != null) {
+            log.info("更新项目 {} 的时间段需求，共 {} 个", id, timeSlots.size());
+            LambdaQueryWrapper<ProjectTimeSlot> tsWrapper = new LambdaQueryWrapper<>();
+            tsWrapper.eq(ProjectTimeSlot::getProjectId, id);
+            int deletedCount = timeSlotMapper.delete(tsWrapper);
+            log.info("删除了 {} 个旧的时间段需求", deletedCount);
+            saveTimeSlots(id, timeSlots);
+        }
     }
 
     @Override
@@ -282,30 +493,43 @@ public class ProjectServiceImpl implements ProjectService {
             throw new BusinessException("只能发布草稿状态的项目");
         }
         
-        // 如果是创建新团队模式，在发布时创建团队
-        if ("CREATE_NEW".equals(project.getTeamMode()) && project.getTeamId() == null) {
-            try {
-                // 使用 TeamService 创建团队（会自动添加创建者为队长）
-                com.teamup.server.modules.team.dto.TeamCreateRequest teamRequest = 
-                    new com.teamup.server.modules.team.dto.TeamCreateRequest();
-                teamRequest.setTeamName(project.getTitle() + " 团队");
-                teamRequest.setLeaderId(userId);
-                teamRequest.setType("PROJECT");  // 项目类型团队
-                teamRequest.setProjectId(id);
-                
-                com.teamup.server.modules.team.entity.Team team = teamService.createTeam(teamRequest);
-                
-                // 更新项目的团队ID和成员数
-                project.setTeamId(team.getId());
-                project.setCurrentMembers(1);
-                
-                // 创建团队-项目关联
-                teamProjectService.associateTeamWithProject(team.getId(), id);
-                
-                log.info("项目发布时自动创建团队：projectId={}, teamId={}", id, team.getId());
-            } catch (Exception e) {
-                log.error("创建项目团队失败", e);
-                throw new BusinessException("创建项目团队失败：" + e.getMessage());
+        // 如果是创建新团队模式，在发布时创建或关联团队
+        if ("CREATE_NEW".equals(project.getTeamMode())) {
+            if (project.getTeamId() == null) {
+                try {
+                    // 使用 TeamService 创建团队（会自动添加创建者为队长）
+                    com.teamup.server.modules.team.dto.TeamCreateRequest teamRequest = 
+                        new com.teamup.server.modules.team.dto.TeamCreateRequest();
+                    teamRequest.setTeamName(project.getTitle() + " 团队");
+                    teamRequest.setLeaderId(userId);
+                    teamRequest.setType("PROJECT");  // 项目类型团队
+                    teamRequest.setProjectId(id);
+                    
+                    com.teamup.server.modules.team.entity.Team team = teamService.createTeam(teamRequest);
+                    
+                    // 更新项目的团队ID和成员数
+                    project.setTeamId(team.getId());
+                    project.setCurrentMembers(1);
+                    
+                    // 创建团队-项目关联
+                    teamProjectService.associateTeamWithProject(team.getId(), id);
+                    
+                    log.info("项目发布时自动创建团队：projectId={}, teamId={}", id, team.getId());
+                } catch (Exception e) {
+                    log.error("创建项目团队失败", e);
+                    throw new BusinessException("创建项目团队失败：" + e.getMessage());
+                }
+            } else {
+                // 已存在团队（例如创建项目时预先创建），确保团队-项目关联存在
+                try {
+                    teamProjectService.associateTeamWithProject(project.getTeamId(), id);
+                    log.info("项目发布时为已存在团队创建关联：projectId={}, teamId={}", id, project.getTeamId());
+                } catch (BusinessException e) {
+                    // 如果已有关联则忽略该错误
+                    log.info("项目发布时团队与项目已有关联，跳过重复关联：projectId={}, teamId={}", id, project.getTeamId());
+                } catch (Exception e) {
+                    log.error("项目发布时创建团队-项目关联失败：projectId={}, teamId={}, error={}", id, project.getTeamId(), e.getMessage());
+                }
             }
         }
         
@@ -524,7 +748,15 @@ public class ProjectServiceImpl implements ProjectService {
             throw new BusinessException(ApiErrorCode.FORBIDDEN, "无权查看此项目的推荐信息");
         }
         
-        return recommendationMapper.selectRecommendationsWithUserInfo(projectId);
+        try {
+            List<Map<String, Object>> recommendations = 
+                recommendationMapper.selectRecommendationsWithUserInfo(projectId);
+            return recommendations != null ? recommendations : new java.util.ArrayList<>();
+        } catch (Exception e) {
+            log.error("查询项目推荐失败: projectId={}", projectId, e);
+            // 返回空列表而不是抛出异常，避免前端报错
+            return new java.util.ArrayList<>();
+        }
     }
     
     @Override
@@ -544,10 +776,40 @@ public class ProjectServiceImpl implements ProjectService {
         project.setUpdatedAt(LocalDateTime.now());
         projectMapper.updateById(project);
         
+        // 为所有项目成员增加信誉分
+        if (project.getTeamId() != null) {
+            try {
+                List<com.teamup.server.modules.team.entity.TeamMember> members = 
+                    teamService.getTeamMembersByTeamId(project.getTeamId());
+                
+                for (com.teamup.server.modules.team.entity.TeamMember member : members) {
+                    creditService.addCreditRecord(
+                        member.getUserId(),
+                        10,
+                        "PROJECT_COMPLETE",
+                        projectId,
+                        "完成项目: " + project.getTitle()
+                    );
+                }
+                
+                log.info("项目完成,为{}个成员增加信誉分", members.size());
+            } catch (Exception e) {
+                log.error("增加项目完成信誉分失败", e);
+            }
+        }
+        
         // 处理团队
         if (project.getTeamId() != null) {
             // 更新 team_projects 表中的状态
             teamProjectService.completeProject(project.getTeamId(), projectId);
+            
+            // 创建项目履历记录
+            try {
+                projectHistoryService.onProjectCompleted(projectId);
+                log.info("项目履历记录已创建");
+            } catch (Exception e) {
+                log.error("创建项目履历记录失败", e);
+            }
             
             // 根据用户选择处理团队
             if ("DISSOLVE".equals(teamAction)) {
@@ -601,4 +863,27 @@ public class ProjectServiceImpl implements ProjectService {
         
         log.info("项目关联团队：projectId={}, teamId={}", projectId, teamId);
     }
+
+
+    @Override
+    public List<ProjectSkillRequirement> getProjectSkillRequirements(Long projectId) {
+        log.info("Service层查询技能需求: projectId={}", projectId);
+        LambdaQueryWrapper<ProjectSkillRequirement> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(ProjectSkillRequirement::getProjectId, projectId)
+               .orderByDesc(ProjectSkillRequirement::getRequired)
+               .orderByAsc(ProjectSkillRequirement::getCreatedAt);
+        List<ProjectSkillRequirement> result = skillRequirementMapper.selectList(wrapper);
+        log.info("Service层查询到 {} 条技能需求", result != null ? result.size() : 0);
+        return result;
+    }
+
+    @Override
+    public List<ProjectTimeSlot> getProjectTimeSlots(Long projectId) {
+        LambdaQueryWrapper<ProjectTimeSlot> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(ProjectTimeSlot::getProjectId, projectId)
+               .orderByAsc(ProjectTimeSlot::getDayOfWeek)
+               .orderByAsc(ProjectTimeSlot::getStartTime);
+        return timeSlotMapper.selectList(wrapper);
+    }
+
 }

@@ -11,6 +11,7 @@ import com.teamup.server.modules.team.entity.Team;
 import com.teamup.server.modules.team.mapper.TeamMapper;
 import com.teamup.server.modules.user.entity.User;
 import com.teamup.server.modules.user.mapper.UserMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +23,7 @@ import java.util.List;
 /**
  * 评价服务实现
  */
+@Slf4j
 @Service
 public class EvaluationServiceImpl implements EvaluationService {
     
@@ -33,6 +35,9 @@ public class EvaluationServiceImpl implements EvaluationService {
     
     @Resource
     private UserMapper userMapper;
+    
+    @Resource
+    private com.teamup.server.modules.user.service.ProjectHistoryService projectHistoryService;
     
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -90,6 +95,23 @@ public class EvaluationServiceImpl implements EvaluationService {
         }
         
         evaluationMapper.insert(evaluation);
+        
+        // 8. 更新项目履历中的评价数据
+        try {
+            projectHistoryService.onEvaluationReceived(projectId, dto.getEvaluatedId());
+            log.info("评价数据已更新: projectId={}, evaluatedId={}, evaluatorId={}", 
+                projectId, dto.getEvaluatedId(), evaluatorId);
+        } catch (Exception e) {
+            // 不影响评价提交，只记录日志
+            log.error("更新项目履历失败: projectId={}, userId={}", projectId, dto.getEvaluatedId(), e);
+        }
+        
+        // 9. 记录评价提交事件，用于匹配服务数据刷新
+        // 注意：匹配服务会实时查询数据库，所以这里主要是确保数据已写入
+        log.info("成员互评已提交: teamId={}, evaluatorId={}, evaluatedId={}, " +
+                "techScore={}, collabScore={}, taskScore={}", 
+            teamId, evaluatorId, dto.getEvaluatedId(),
+            dto.getTechContributionScore(), dto.getCollaborationScore(), dto.getTaskCompletionScore());
     }
     
     @Override

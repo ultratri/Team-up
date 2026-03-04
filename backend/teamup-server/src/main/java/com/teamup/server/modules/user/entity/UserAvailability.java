@@ -4,66 +4,22 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 /**
- * 用户可用性/组队意向实体
+ * 用户时间段实体（用于匹配功能）
  */
 @Data
-@TableName("user_availability")
+@TableName("user_time_slots")
 public class UserAvailability {
-    
     @TableId(type = IdType.AUTO)
     private Long id;
     
-    /**
-     * 用户ID
-     */
     private Long userId;
-    
-    /**
-     * 是否可用（上人才墙）
-     */
-    private Boolean isAvailable;
-    
-    /**
-     * 意向（逗号分隔）：JOIN_PROJECT,FIND_TEAMMATES,FIND_MENTOR,HELP_NEWBIE
-     */
-    private String intention;
-    
-    /**
-     * 可见范围：PUBLIC,PROJECT_CREATOR,MENTOR
-     */
-    private String visibility;
-    
-    /**
-     * 可用开始时间
-     */
-    private LocalDate availableFrom;
-    
-    /**
-     * 可用结束时间
-     */
-    private LocalDate availableUntil;
-    
-    /**
-     * 每周可投入小时数
-     */
-    private Integer weeklyHours;
-    
-    /**
-     * 备注说明
-     */
-    private String notes;
-    
-    /**
-     * 创建时间
-     */
+    private Integer dayOfWeek;  // 星期几(1-7,1表示周一)
+    private LocalTime startTime;
+    private LocalTime endTime;
     private LocalDateTime createdAt;
-    
-    /**
-     * 更新时间
-     */
     private LocalDateTime updatedAt;
 }

@@ -167,9 +167,13 @@
               @keydown.space.prevent="handleMenuSelect('chat')"
               role="menuitem"
               aria-label="团队聊天"
+              class="chat-menu-item"
             >
-              <el-icon><ChatDotRound /></el-icon>
-              <span>团队聊天</span>
+              <div class="menu-item-with-badge">
+                <el-icon><ChatDotRound /></el-icon>
+                <span>团队聊天</span>
+                <span v-if="unreadChatCount > 0" class="chat-unread-dot"></span>
+              </div>
             </el-menu-item>
             <el-menu-item 
               index="sprints"
@@ -194,6 +198,17 @@
               <span>每日站会</span>
             </el-menu-item>
             <el-menu-item 
+              index="evaluation"
+              tabindex="0"
+              @keydown.enter="handleMenuSelect('evaluation')"
+              @keydown.space.prevent="handleMenuSelect('evaluation')"
+              role="menuitem"
+              aria-label="成员互评"
+            >
+              <el-icon><Star /></el-icon>
+              <span>成员互评</span>
+            </el-menu-item>
+            <el-menu-item 
               index="settings"
               tabindex="0"
               @keydown.enter="handleMenuSelect('settings')"
@@ -203,6 +218,17 @@
             >
               <el-icon><Tools /></el-icon>
               <span>团队设置</span>
+            </el-menu-item>
+            <el-menu-item 
+              index="candidates"
+              tabindex="0"
+              @keydown.enter="handleMenuSelect('candidates')"
+              @keydown.space.prevent="handleMenuSelect('candidates')"
+              role="menuitem"
+              aria-label="团队找成员"
+            >
+              <el-icon><User /></el-icon>
+              <span>团队找成员</span>
             </el-menu-item>
           </el-menu>
         </el-aside>
@@ -221,7 +247,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ElNotification } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { useTeamStore } from '@/store/team'
 import { useAuthStore } from '@/store/auth'
@@ -238,7 +265,8 @@ import {
   Close,
   TrendCharts,
   Calendar,
-  Tools
+  Tools,
+  Star
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -269,10 +297,37 @@ const activeMenu = computed(() => {
     'TeamChat': 'chat',
     'TeamSprints': 'sprints',
     'TeamStandup': 'standup',
-    'TeamSettings': 'settings'
+    'TeamEvaluation': 'evaluation',
+    'TeamSettings': 'settings',
+    'TeamCandidates': 'candidates'
   }
   
   return moduleMap[routeName] || 'overview'
+})
+
+// 团队聊天未读消息数
+const unreadChatCount = ref(0)
+const isOnChatRoute = computed(() => route.name === 'TeamChat')
+const resetChatUnread = () => {
+  unreadChatCount.value = 0
+}
+
+// 通知设置（与 Chat.vue 保持一致，本地、按用户保存）
+type ChatNotificationSettings = {
+  desktopEnabled: boolean
+  onlyMention: boolean
+  soundEnabled: boolean
+}
+
+const chatNotificationSettings = ref<ChatNotificationSettings>({
+  desktopEnabled: true,
+  onlyMention: true,
+  soundEnabled: true
+})
+
+const chatSettingsStorageKey = computed(() => {
+  const userId = authStore.user?.id || 'anonymous'
+  return `teamChatNotifySettings_${userId}`
 })
 
 /**
@@ -323,7 +378,9 @@ const handleMenuSelect = (key: string) => {
     'chat': 'TeamChat',
     'sprints': 'TeamSprints',
     'standup': 'TeamStandup',
-    'settings': 'TeamSettings'
+    'evaluation': 'TeamEvaluation',
+    'settings': 'TeamSettings',
+    'candidates': 'TeamCandidates'
   }
   
   const routeName = routeMap[key]
@@ -333,6 +390,11 @@ const handleMenuSelect = (key: string) => {
       name: routeName,
       params: { id: teamId.value }
     })
+
+    // 进入聊天页面时清空未读
+    if (key === 'chat') {
+      resetChatUnread()
+    }
 
     // 2. 后台预取数据，不阻塞UI
     if (key === 'tasks' || key === 'overview') {
@@ -460,9 +522,117 @@ watch(teamId, (newTeamId, oldTeamId) => {
   }
 }, { immediate: false })
 
-// 组件挂载时加载数据
+// 路由变化：进入聊天页面时清空未读
+watch(
+  () => route.name,
+  (name) => {
+    if (name === 'TeamChat') {
+      resetChatUnread()
+    }
+  }
+)
+
+// 处理来自团队聊天的新消息事件
+const handleTeamChatNewMessage = (event: Event) => {
+  const customEvent = event as CustomEvent
+  const detail: any = customEvent.detail || {}
+  if (!detail || detail.teamId !== teamId.value) return
+
+  // 自己发的消息不算未读
+  if (detail.isMe) return
+
+  // 当前就在聊天页且页面可见，不累计未读
+  if (isOnChatRoute.value && !document.hidden) return
+
+  unreadChatCount.value += 1
+
+  const isMentioned = !!detail.isMentioned
+
+  // 桌面通知逻辑（尊重设置 + 仅 @ 我 时的选项）
+  // 这里不再强制要求 document.hidden，前台页面也可以弹系统通知，保证更明显
+  if (chatNotificationSettings.value.desktopEnabled && 'Notification' in window) {
+    if (!chatNotificationSettings.value.onlyMention || isMentioned) {
+      const showNotify = () => {
+        const title = detail.message?.senderName || '团队新消息'
+        const body = detail.message?.content || '发送了一条新消息'
+        new Notification(title, {
+          body,
+          tag: `team-chat-${teamId.value}`
+        })
+      }
+
+      if (Notification.permission === 'granted') {
+        showNotify()
+      } else if (Notification.permission === 'default') {
+        Notification.requestPermission().then((permission) => {
+          if (permission === 'granted') {
+            showNotify()
+          }
+        }).catch(() => {})
+      }
+    }
+  }
+
+  // 提示音（仅在设置开启且命中“仅 @ 我”时才播放）
+  if (chatNotificationSettings.value.soundEnabled) {
+    if (!chatNotificationSettings.value.onlyMention || isMentioned) {
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+        const o = ctx.createOscillator()
+        const g = ctx.createGain()
+        o.type = 'sine'
+        o.frequency.value = 880
+        o.connect(g)
+        g.connect(ctx.destination)
+        // 提高音量并稍微延长时间，让提示更明显
+        g.gain.setValueAtTime(0.0001, ctx.currentTime)
+        g.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.02)
+        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4)
+        o.start()
+        o.stop(ctx.currentTime + 0.45)
+      } catch {
+        // ignore audio errors
+      }
+    }
+  }
+
+  // 如果桌面通知不可用或被拒绝，在页面内给一个轻量提示（当前标签也能看到）
+  if (!document.hidden || !('Notification' in window) || Notification.permission === 'denied') {
+    if (!chatNotificationSettings.value.onlyMention || isMentioned) {
+      ElNotification({
+        title: '团队新消息',
+        message: detail.message?.content || '收到一条新消息',
+        type: 'info',
+        duration: 3000
+      })
+    }
+  }
+}
+
+// 组件挂载时加载数据并注册监听
 onMounted(() => {
   loadTeamData()
+
+  // 读取本地聊天通知设置（与 Chat.vue 共用存储）
+  try {
+    const raw = window.localStorage.getItem(chatSettingsStorageKey.value)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      chatNotificationSettings.value = {
+        desktopEnabled: parsed.desktopEnabled ?? true,
+        onlyMention: parsed.onlyMention ?? true,
+        soundEnabled: parsed.soundEnabled ?? true
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  window.addEventListener('team-chat:new-message', handleTeamChatNewMessage)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('team-chat:new-message', handleTeamChatNewMessage)
 })
 </script>
 
@@ -719,6 +889,26 @@ onMounted(() => {
           &.is-active::before {
             display: none;
           }
+        }
+      }
+
+      .chat-menu-item {
+        .menu-item-with-badge {
+          display: flex;
+          align-items: center;
+          gap: var(--spacing-sm);
+          position: relative;
+        }
+
+        .chat-unread-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: var(--accent-color);
+          position: absolute;
+          right: -4px;
+          top: 50%;
+          transform: translateY(-50%);
         }
       }
     }

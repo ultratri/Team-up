@@ -1,6 +1,12 @@
 import { request } from '@utils/request'
-import { normalizeProjectFiles } from '@utils/fieldNormalizer'
-import type { Project, ProjectApplication, ProjectComment, ProjectFile, ProjectMilestone } from '../types/project'
+import {
+  normalizeCandidateMatchItem,
+  normalizeProjectFiles,
+  normalizeProjectMatchItem,
+  type CandidateMatchItem,
+  type ProjectMatchItem
+} from '@utils/fieldNormalizer'
+import type { Project, ProjectApplication, ProjectComment, ProjectFile, ProjectMilestone, ProjectSkillRequirement } from '../types/project'
 import type { TeamMember } from '../types/team'
 
 interface PageResult<T> {
@@ -9,6 +15,7 @@ interface PageResult<T> {
   // 其他分页字段不强约束
   [key: string]: any
 }
+
 
 // 获取项目列表（项目大厅）
 export async function getProjects(params?: {
@@ -62,9 +69,32 @@ export function getProjectDetail(id: number) {
   return request.get<Project>(`/projects/${id}`)
 }
 
-// 获取项目成员（通过项目关联的团队）
+// 获取项目成员(通过项目关联的团队)
 export function getProjectMembers(projectId: number) {
   return request.get<TeamMember[]>(`/projects/${projectId}/members`)
+}
+
+// 获取项目技能需求
+export function getProjectSkillRequirements(projectId: number) {
+  return request.get<ProjectSkillRequirement[]>(`/projects/${projectId}/skill-requirements`)
+}
+
+// 获取项目时间段需求
+export interface ProjectTimeSlot {
+  id?: number
+  projectId?: number
+  dayOfWeek: number
+  startTime: string
+  endTime: string
+}
+
+export function getProjectTimeSlots(projectId: number) {
+  return request.get<ProjectTimeSlot[]>(`/projects/${projectId}/time-slots`)
+}
+
+// 更新项目(包含技能需求)
+export function updateProjectWithSkills(id: number, data: Partial<Project> & { skillRequirements?: any[] }) {
+  return request.put<Project>(`/projects/${id}`, data)
 }
 
 // 创建项目
@@ -90,6 +120,67 @@ export function deleteProject(id: number) {
 // 申请加入项目
 export function applyProject(projectId: number, reason?: string) {
   return request.post<ProjectApplication>(`/projects/${projectId}/apply`, { reason })
+}
+
+// 团队申请加入项目
+export interface TeamApplicationRequest {
+  applicantIds: number[]
+  message?: string
+}
+
+export interface TeamApplicationDTO {
+  id: number
+  projectId: number
+  projectTitle?: string
+  leaderId: number
+  leaderName?: string
+  message?: string
+  status: string
+  reviewedBy?: number
+  reviewerName?: string
+  reviewComment?: string
+  appliedAt: string
+  reviewedAt?: string
+  members: TeamMemberDTO[]
+}
+
+export interface TeamMemberDTO {
+  userId: number
+  username: string
+  nickname?: string
+  avatar?: string
+  confirmed: boolean
+  confirmedAt?: string
+}
+
+export function teamApplyProject(projectId: number, request: TeamApplicationRequest) {
+  return request.post<TeamApplicationDTO>(`/projects/${projectId}/team-apply`, request)
+}
+
+export function getTeamApplication(applicationId: number) {
+  return request.get<TeamApplicationDTO>(`/projects/team-applications/${applicationId}`)
+}
+
+export function getProjectTeamApplications(projectId: number) {
+  return request.get<TeamApplicationDTO[]>(`/projects/${projectId}/team-applications`)
+}
+
+export function getMyTeamApplications() {
+  return request.get<TeamApplicationDTO[]>('/projects/team-applications/my')
+}
+
+export function confirmTeamMembership(applicationId: number) {
+  return request.post(`/projects/team-applications/${applicationId}/confirm`)
+}
+
+export function reviewTeamApplication(applicationId: number, approved: boolean, comment?: string) {
+  return request.post(`/projects/team-applications/${applicationId}/review`, null, {
+    params: { approved, comment }
+  })
+}
+
+export function cancelTeamApplication(applicationId: number) {
+  return request.post(`/projects/team-applications/${applicationId}/cancel`)
 }
 
 // 审核申请
@@ -129,9 +220,25 @@ export function batchReviewApplications(applicationIds: number[], approved: bool
   })
 }
 
-// 获取项目推荐结果
+// 获取项目推荐结果（项目招募成员）
 export function getProjectRecommendations(projectId: number) {
-  return request.get<ApiResult<any[]>>(`/projects/${projectId}/recommendations`)
+  return request.get<any[]>(`/projects/${projectId}/recommendations`)
+}
+
+// 为当前用户匹配合适的项目（成员找项目）
+export async function getMatchedProjectsForMe(page = 1, size = 20): Promise<ProjectMatchItem[]> {
+  const list = await request.get<any[]>('/projects/match-for-me', {
+    params: { page, size }
+  })
+  return (list || []).map(normalizeProjectMatchItem)
+}
+
+// 为项目匹配候选人（项目找成员）
+export async function getMatchedCandidatesForProject(projectId: number): Promise<CandidateMatchItem[]> {
+  // 直接使用实时匹配接口进行调试
+  console.log('调用实时匹配接口:', `/projects/${projectId}/match`)
+  const list = await request.post<any[]>(`/projects/${projectId}/match`)
+  return (list || []).map(normalizeCandidateMatchItem)
 }
 
 // 获取项目评论（分页）

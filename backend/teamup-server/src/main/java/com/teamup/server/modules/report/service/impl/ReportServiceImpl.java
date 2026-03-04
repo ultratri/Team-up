@@ -13,12 +13,16 @@ import com.teamup.server.modules.report.mapper.ReportMapper;
 import com.teamup.server.modules.report.service.ReportService;
 import com.teamup.server.modules.report.vo.ReportDetailVO;
 import com.teamup.server.modules.report.vo.ReportStatisticsVO;
+import com.teamup.server.modules.user.service.CreditService;
+import com.teamup.server.modules.user.service.UserService;
+import com.teamup.server.modules.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
@@ -31,6 +35,12 @@ public class ReportServiceImpl extends ServiceImpl<ReportMapper, Report> impleme
     
     private final ReportMapper reportMapper;
     private final ObjectMapper objectMapper;
+    private final CreditService creditService;
+    private final UserService userService;
+    private final NotificationService notificationService;
+    // 注入各模块服务用于删除内容
+    // 注意: 这些服务需要在使用时检查是否为null,因为可能存在循环依赖
+    // 如果遇到循环依赖,可以使用@Lazy注解或通过ApplicationContext获取
     
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -150,6 +160,49 @@ public class ReportServiceImpl extends ServiceImpl<ReportMapper, Report> impleme
             executePunishment(report, dto);
         }
         
+        // 发送通知给举报人
+        try {
+            String title = "举报处理结果通知";
+            String content = String.format("您提交的举报（ID: %d）已处理完成。\n\n处理结果：%s\n\n感谢您对平台建设的支持！", 
+                                          report.getId(), dto.getHandleResult());
+            
+            notificationService.createNotification(
+                report.getReporterId(),
+                "REPORT",
+                title,
+                content,
+                "REPORT",
+                report.getId()
+            );
+        } catch (Exception e) {
+            log.error("发送举报结果通知失败", e);
+        }
+        
+        // 如果举报属实，通知被举报人
+        if (dto.getStatus() == Report.ReportStatus.RESOLVED) {
+            Long targetUserId = getTargetUserId(report);
+            if (targetUserId != null) {
+                try {
+                    String title = "违规处理通知";
+                    String content = String.format("您的%s因违规被举报，已被处理。原因：%s\n处理结果：%s", 
+                                         getTargetTypeName(report.getTargetType()),
+                                         getReasonName(report.getReason()),
+                                         dto.getHandleResult());
+                    
+                    notificationService.createNotification(
+                        targetUserId,
+                        "SYSTEM",
+                        title,
+                        content,
+                        report.getTargetType().name(),
+                        report.getTargetId()
+                    );
+                } catch (Exception e) {
+                    log.error("发送违规通知失败", e);
+                }
+            }
+        }
+        
         log.info("举报处理完成: reportId={}", dto.getReportId());
     }
     
@@ -160,26 +213,261 @@ public class ReportServiceImpl extends ServiceImpl<ReportMapper, Report> impleme
         log.info("执行惩罚: targetType={}, targetId={}, punishmentType={}", 
                  report.getTargetType(), report.getTargetId(), dto.getPunishmentType());
         
-        // TODO: 根据惩罚类型执行相应操作
-        // BAN_USER: 封禁用户
-        // DELETE_CONTENT: 删除内容（项目/评论等）
-        // DEDUCT_CREDIT: 扣除信誉分
+        try {
+            switch (dto.getPunishmentType()) {
+                case "BAN_USER":
+                    banUser(report, dto);
+                    break;
+                case "DELETE_CONTENT":
+                    deleteContent(report);
+                    break;
+                case "DEDUCT_CREDIT":
+                    deductCredit(report);
+                    break;
+                default:
+                    log.warn("未知的惩罚类型: {}", dto.getPunishmentType());
+            }
+        } catch (Exception e) {
+            log.error("执行惩罚失败", e);
+            throw new BusinessException("执行惩罚失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 封禁用户
+     */
+    private void banUser(Report report, HandleReportDTO dto) {
+        Long userId = getTargetUserId(report);
+        if (userId == null) {
+            log.error("无法获取目标用户ID");
+            throw new BusinessException("无法获取目标用户ID");
+        }
         
-        switch (dto.getPunishmentType()) {
-            case "BAN_USER":
-                // 封禁用户逻辑
-                log.info("封禁用户: userId={}, days={}", report.getTargetId(), dto.getPunishmentDays());
-                break;
-            case "DELETE_CONTENT":
-                // 删除内容逻辑
-                log.info("删除内容: targetType={}, targetId={}", report.getTargetType(), report.getTargetId());
-                break;
-            case "DEDUCT_CREDIT":
-                // 扣除信誉分逻辑
-                log.info("扣除信誉分: userId={}", report.getTargetId());
-                break;
+        // 调用UserService封禁用户
+        userService.banUser(userId, dto.getPunishmentDays(), "举报违规：" + getReasonName(report.getReason()));
+        
+        LocalDateTime banUntil = LocalDateTime.now().plusDays(dto.getPunishmentDays());
+        
+        log.info("用户封禁成功: userId={}, days={}, until={}", userId, dto.getPunishmentDays(), banUntil);
+        
+        // 发送封禁通知
+        try {
+            String title = "账号封禁通知";
+            String content = String.format("您的账号因违规被封禁%d天。\n违规原因：%s\n解封时间：%s\n\n如有异议，请联系管理员。", 
+                             dto.getPunishmentDays(),
+                             getReasonName(report.getReason()),
+                             banUntil.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+            
+            notificationService.createNotification(
+                userId,
+                "SYSTEM",
+                title,
+                content,
+                "USER",
+                userId
+            );
+        } catch (Exception e) {
+            log.error("发送封禁通知失败", e);
+        }
+    }
+    
+    /**
+     * 删除内容
+     * 注意: 此方法会永久删除内容,请谨慎使用
+     */
+    private void deleteContent(Report report) {
+        log.info("开始删除违规内容: targetType={}, targetId={}", report.getTargetType(), report.getTargetId());
+        
+        try {
+            switch (report.getTargetType()) {
+                case PROJECT:
+                    deleteProject(report.getTargetId());
+                    break;
+                case TEAM:
+                    deleteTeam(report.getTargetId());
+                    break;
+                case COMMENT:
+                    deleteComment(report.getTargetId());
+                    break;
+                case USER:
+                    log.warn("不支持删除用户，请使用封禁功能");
+                    throw new BusinessException("不支持删除用户，请使用封禁功能");
+            }
+            
+            log.info("违规内容删除成功: targetType={}, targetId={}", report.getTargetType(), report.getTargetId());
+        } catch (Exception e) {
+            log.error("删除违规内容失败: targetType={}, targetId={}", report.getTargetType(), report.getTargetId(), e);
+            throw new BusinessException("删除内容失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 删除项目
+     */
+    private void deleteProject(Long projectId) {
+        try {
+            // 使用MyBatis直接删除,避免循环依赖
+            // 注意: 这里简化实现,实际应该调用ProjectService的删除方法以确保级联删除
+            int deleted = reportMapper.deleteProject(projectId);
+            if (deleted > 0) {
+                log.info("项目删除成功: projectId={}", projectId);
+            } else {
+                log.warn("项目不存在或已被删除: projectId={}", projectId);
+            }
+        } catch (Exception e) {
+            log.error("删除项目失败: projectId={}", projectId, e);
+            throw new BusinessException("删除项目失败");
+        }
+    }
+    
+    /**
+     * 删除团队
+     */
+    private void deleteTeam(Long teamId) {
+        try {
+            // 使用MyBatis直接删除,避免循环依赖
+            int deleted = reportMapper.deleteTeam(teamId);
+            if (deleted > 0) {
+                log.info("团队删除成功: teamId={}", teamId);
+            } else {
+                log.warn("团队不存在或已被删除: teamId={}", teamId);
+            }
+        } catch (Exception e) {
+            log.error("删除团队失败: teamId={}", teamId, e);
+            throw new BusinessException("删除团队失败");
+        }
+    }
+    
+    /**
+     * 删除评论
+     */
+    private void deleteComment(Long commentId) {
+        try {
+            // 使用MyBatis直接删除,避免循环依赖
+            int deleted = reportMapper.deleteComment(commentId);
+            if (deleted > 0) {
+                log.info("评论删除成功: commentId={}", commentId);
+            } else {
+                log.warn("评论不存在或已被删除: commentId={}", commentId);
+            }
+        } catch (Exception e) {
+            log.error("删除评论失败: commentId={}", commentId, e);
+            throw new BusinessException("删除评论失败");
+        }
+    }
+    
+    /**
+     * 扣除信誉分
+     */
+    private void deductCredit(Report report) {
+        Long userId = getTargetUserId(report);
+        if (userId == null) {
+            log.error("无法获取目标用户ID");
+            throw new BusinessException("无法获取目标用户ID");
+        }
+        
+        // 根据违规类型扣除不同分数
+        int deductAmount = getDeductAmount(report.getReason());
+        
+        // 调用信誉分服务扣除分数
+        creditService.addCreditRecord(
+            userId,
+            -deductAmount,
+            "REPORT_PENALTY",
+            null,
+            String.format("举报违规扣分：%s", getReasonName(report.getReason()))
+        );
+        
+        log.info("信誉分扣除成功: userId={}, amount={}", userId, deductAmount);
+        
+        // 发送通知
+        try {
+            String title = "信誉分扣除通知";
+            String content = String.format("您因违规行为被扣除%d信誉分。\n违规原因：%s\n\n请遵守平台规则，维护良好的社区环境。", 
+                             deductAmount, 
+                             getReasonName(report.getReason()));
+            
+            notificationService.createNotification(
+                userId,
+                "SYSTEM",
+                title,
+                content,
+                "USER",
+                userId
+            );
+        } catch (Exception e) {
+            log.error("发送信誉分扣除通知失败", e);
+        }
+    }
+    
+    /**
+     * 获取目标用户ID
+     * 根据不同的目标类型,查询对应的创建者/作者ID
+     */
+    private Long getTargetUserId(Report report) {
+        switch (report.getTargetType()) {
+            case USER:
+                // 直接返回用户ID
+                return report.getTargetId();
+            case PROJECT:
+                // 查询项目创建者ID
+                return reportMapper.getProjectCreatorId(report.getTargetId());
+            case TEAM:
+                // 查询团队创建者ID
+                return reportMapper.getTeamCreatorId(report.getTargetId());
+            case COMMENT:
+                // 查询评论作者ID
+                return reportMapper.getCommentAuthorId(report.getTargetId());
             default:
-                log.warn("未知的惩罚类型: {}", dto.getPunishmentType());
+                log.warn("未知的目标类型: {}", report.getTargetType());
+                return null;
+        }
+    }
+    
+    /**
+     * 根据违规类型获取扣除分数
+     */
+    private int getDeductAmount(Report.ReportReason reason) {
+        switch (reason) {
+            case FRAUD:
+                return 20; // 诈骗行为扣20分
+            case HARASSMENT:
+                return 15; // 骚扰行为扣15分
+            case INAPPROPRIATE:
+                return 10; // 不当内容扣10分
+            case SPAM:
+                return 5;  // 垃圾信息扣5分
+            case OTHER:
+                return 5;  // 其他扣5分
+            default:
+                return 5;
+        }
+    }
+    
+    /**
+     * 获取目标类型名称
+     */
+    private String getTargetTypeName(Report.TargetType targetType) {
+        switch (targetType) {
+            case PROJECT: return "项目";
+            case TEAM: return "团队";
+            case USER: return "账号";
+            case COMMENT: return "评论";
+            default: return "内容";
+        }
+    }
+    
+    /**
+     * 获取举报原因名称
+     */
+    private String getReasonName(Report.ReportReason reason) {
+        switch (reason) {
+            case SPAM: return "垃圾信息";
+            case FRAUD: return "诈骗行为";
+            case INAPPROPRIATE: return "不当内容";
+            case HARASSMENT: return "骚扰行为";
+            case OTHER: return "其他";
+            default: return "未知";
         }
     }
     

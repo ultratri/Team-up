@@ -18,6 +18,20 @@
           show-icon
           :closable="false"
         />
+        <el-alert
+          title="匹配说明"
+          type="success"
+          :closable="false"
+          style="margin-top: 12px;"
+        >
+          <template #default>
+            <p style="margin: 0; font-size: 13px;">
+              • 匹配度基于9个维度综合计算：技能匹配(40%)、协作能力(15%)、时间匹配(15%)等<br/>
+              • 协作能力维度包含成员互评数据；若存在“导师对成员评价”，也会对协作能力做小幅加成<br/>
+              • 新用户可能因评价数据不足而协作能力分数较低，这是正常现象
+            </p>
+          </template>
+        </el-alert>
         <div style="display: flex; gap: 12px; margin-top: 12px; align-items: center; flex-wrap: wrap;">
           <el-input
             v-model="projectIdInput"
@@ -85,21 +99,58 @@
                   <div class="detail-item">
                     <span class="label">技能匹配:</span>
                     <el-progress
-                      :percentage="result.skill_match_score || result.skill_match || 0"
+                      :percentage="Math.round((result.breakdown?.skill || result.skill_match_score || result.skill_match || 0) * 100)"
                       :stroke-width="8"
                       :show-text="false"
                     />
-                    <span class="value">{{ result.skill_match_score || result.skill_match || 0 }}%</span>
+                    <span class="value">{{ Math.round((result.breakdown?.skill || result.skill_match_score || result.skill_match || 0) * 100) }}%</span>
                   </div>
-                  <!-- 可以增加语义匹配显示 -->
-                  <div class="detail-item" v-if="result.semantic_match_score">
-                     <span class="label">语义契合:</span>
-                     <el-progress
-                      :percentage="result.semantic_match_score"
+                  
+                  <!-- 协作能力（包含成员互评数据） -->
+                  <div class="detail-item">
+                    <span class="label">
+                      协作能力:
+                      <el-tooltip content="基于成员互评和协作历史计算" placement="top">
+                        <el-icon class="info-icon"><InfoFilled /></el-icon>
+                      </el-tooltip>
+                    </span>
+                    <el-progress
+                      :percentage="Math.round((result.breakdown?.collaboration || 0) * 100)"
+                      :stroke-width="8"
+                      :show-text="false"
+                      :color="getCollaborationColor(result.breakdown?.collaboration)"
+                    />
+                    <span class="value">{{ Math.round((result.breakdown?.collaboration || 0) * 100) }}%</span>
+                    <span v-if="!hasEvaluationData(result)" class="data-hint" title="该用户暂无成员互评数据">
+                      <el-icon><Warning /></el-icon>
+                    </span>
+                  </div>
+                  
+                  <!-- 时间匹配 -->
+                  <div class="detail-item" v-if="result.breakdown?.time !== undefined">
+                    <span class="label">时间匹配:</span>
+                    <el-progress
+                      :percentage="Math.round((result.breakdown.time || 0) * 100)"
                       :stroke-width="8"
                       :show-text="false"
                     />
-                    <span class="value">{{ result.semantic_match_score }}%</span>
+                    <span class="value">{{ Math.round((result.breakdown.time || 0) * 100) }}%</span>
+                  </div>
+                  
+                  <!-- 可以增加语义匹配显示 -->
+                  <div class="detail-item" v-if="result.semantic_match_score || result.breakdown?.goal">
+                     <span class="label">目标契合:</span>
+                     <el-progress
+                      :percentage="Math.round((result.breakdown?.goal || result.semantic_match_score || 0) * 100)"
+                      :stroke-width="8"
+                      :show-text="false"
+                    />
+                    <span class="value">{{ Math.round((result.breakdown?.goal || result.semantic_match_score || 0) * 100) }}%</span>
+                  </div>
+                  
+                  <!-- 匹配原因 -->
+                  <div v-if="result.match_reason" class="match-reason">
+                    <el-tag size="small" type="info">{{ result.match_reason }}</el-tag>
                   </div>
                 </div>
 
@@ -126,7 +177,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRoute } from 'vue-router'
-import { Refresh } from '@element-plus/icons-vue'
+import { Refresh, InfoFilled, Warning } from '@element-plus/icons-vue'
 import { getProjectRecommendations } from '../../api/project'
 
 const route = useRoute()
@@ -166,6 +217,24 @@ const getCreditText = (level: string) => {
     OUTSTANDING: '卓越',
   }
   return texts[level] || level
+}
+
+// 获取协作能力颜色（根据分数）
+const getCollaborationColor = (score?: number) => {
+  if (!score) return '#909399'
+  const percentage = score * 100
+  if (percentage >= 70) return '#67c23a'
+  if (percentage >= 50) return '#409eff'
+  if (percentage >= 30) return '#e6a23c'
+  return '#f56c6c'
+}
+
+// 判断是否有评价数据
+const hasEvaluationData = (result: any) => {
+  // 如果协作分数为0或很低，可能是没有评价数据
+  const collaboration = result.breakdown?.collaboration || 0
+  // 通常有评价数据的用户协作分数会更高
+  return collaboration > 0.2
 }
 
 const loadMatching = async (projectId: number) => {
@@ -287,11 +356,38 @@ onMounted(() => {
             align-items: center;
             gap: 12px;
             margin-bottom: 8px;
+            
+            &:last-child {
+              margin-bottom: 0;
+            }
+          }
+          
+          .match-reason {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #ebeef5;
+          }
 
             .label {
-              min-width: 80px;
+              min-width: 100px;
               color: #606266;
               font-size: 14px;
+              display: flex;
+              align-items: center;
+              gap: 4px;
+              
+              .info-icon {
+                color: #909399;
+                font-size: 14px;
+                cursor: help;
+              }
+            }
+            
+            .data-hint {
+              color: #e6a23c;
+              font-size: 14px;
+              margin-left: 4px;
+              cursor: help;
             }
 
             :deep(.el-progress) {

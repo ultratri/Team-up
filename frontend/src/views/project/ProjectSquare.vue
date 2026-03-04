@@ -72,6 +72,13 @@ const loadProjects = async () => {
   }
 }
 
+// 预加载详情页组件，提升跳转速度
+const preloadProjectDetail = () => {
+  import('../project/ProjectDetail.vue').catch(() => {
+    // 预加载失败时忽略，真实跳转再加载
+  })
+}
+
 const handleOpenProject = (id: number) => {
   router.push({ name: 'ProjectDetail', params: { id } })
 }
@@ -102,6 +109,8 @@ const maybeTriggerGuide = () => {
 }
 
 onMounted(() => {
+  // 预加载详情页组件，提升跳转速度
+  preloadProjectDetail()
   maybeTriggerGuide()
   loadProjects()
 })

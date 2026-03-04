@@ -40,6 +40,7 @@ const updateChart = () => {
       textStyle: {
         fontSize: 14,
         fontWeight: 'normal',
+        fontFamily: 'Microsoft YaHei, SimHei, Arial, sans-serif',
       },
     },
     tooltip: {
@@ -47,10 +48,16 @@ const updateChart = () => {
       axisPointer: {
         type: 'shadow',
       },
+      textStyle: {
+        fontFamily: 'Microsoft YaHei, SimHei, Arial, sans-serif',
+      },
     },
     legend: {
       data: ['用户数', '项目数'],
       bottom: 0,
+      textStyle: {
+        fontFamily: 'Microsoft YaHei, SimHei, Arial, sans-serif',
+      },
     },
     grid: {
       left: '3%',
@@ -63,10 +70,14 @@ const updateChart = () => {
       data: departments.length > 0 ? departments : ['暂无数据'],
       axisLabel: {
         rotate: 30,
+        fontFamily: 'Microsoft YaHei, SimHei, Arial, sans-serif',
       },
     },
     yAxis: {
       type: 'value',
+      axisLabel: {
+        fontFamily: 'Microsoft YaHei, SimHei, Arial, sans-serif',
+      },
     },
     series: [
       {

@@ -206,7 +206,6 @@ import { onBeforeUnmount, watch } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
-import Underline from '@tiptap/extension-underline'
 import { Table } from '@tiptap/extension-table'
 import { TableRow } from '@tiptap/extension-table-row'
 import { TableCell } from '@tiptap/extension-table-cell'
@@ -248,7 +247,6 @@ const editor = useEditor({
       // 禁用 StarterKit 中的 codeBlock，使用自定义的 CodeBlockLowlight
       codeBlock: false
     }),
-    Underline,
     Image.configure({
       inline: true,
       allowBase64: true

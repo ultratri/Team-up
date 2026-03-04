@@ -118,6 +118,18 @@
                     <span class="q-value">{{ teamInfo.type === 'COMPETITION' ? '竞赛团队' : '项目团队' }}</span>
                   </div>
                 </div>
+                
+                <!-- 举报按钮（非团队成员可见） -->
+                <div v-if="authStore.isLoggedIn && !isTeamMember" class="team-actions" style="margin-top: 16px;">
+                  <el-button
+                    text
+                    type="danger"
+                    @click="handleReportTeam"
+                  >
+                    <el-icon><WarningFilled /></el-icon>
+                    举报团队
+                  </el-button>
+                </div>
               </div>
             </div>
           </div>
@@ -800,13 +812,23 @@
           </div>
         </template>
       </el-dialog>
+      
+      <!-- 举报对话框 -->
+      <ReportDialog
+        v-if="teamInfo.id"
+        ref="reportDialogRef"
+        :target-type="TargetType.TEAM"
+        :target-id="teamInfo.id"
+        :target-name="teamInfo.name"
+        @success="handleReportSuccess"
+      />
     </div>
   </div>
 </template>
 
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
@@ -832,7 +854,8 @@ import {
   Loading,
   InfoFilled,
   Phone,
-  Rank
+  Rank,
+  WarningFilled
 } from '@element-plus/icons-vue'
 import { getTeam, getTeamMembers, getTeamStatistics, getTeamActivities, uploadTeamAvatar, addTeamMember, removeTeamMember } from '@api/team'
 import { getTeamJoinApplications, reviewTeamJoinApplication } from '@api/team'
@@ -848,6 +871,8 @@ import type { User } from '@api/user'
 import type { UserSkill } from '@/types/user'
 import MarkdownViewer from '@/components/common/MarkdownViewer.vue'
 import MentorDetailDialog from '@/components/mentor/MentorDetailDialog.vue'
+import ReportDialog from '@/components/report/ReportDialog.vue'
+import { TargetType } from '@/api/report'
 
 const props = defineProps<{
   teamId?: number
@@ -888,6 +913,27 @@ const isLeader = computed(() => {
   const member = members.value.find(m => m.userId === userId)
   return member?.role === 'LEADER' || member?.role === 'OWNER' || member?.role === 'ADMIN'
 })
+
+// 举报相关
+const reportDialogRef = ref<InstanceType<typeof ReportDialog> | null>(null)
+
+// 是否是团队成员
+const isTeamMember = computed(() => {
+  const userId = authStore.user?.id
+  if (!userId) return false
+  return members.value.some(m => m.userId === userId || m.id === userId)
+})
+
+// 举报团队
+const handleReportTeam = () => {
+  if (reportDialogRef.value && teamInfo.value.id) {
+    reportDialogRef.value.open()
+  }
+}
+
+const handleReportSuccess = () => {
+  ElMessage.success('举报提交成功，我们会尽快处理')
+}
 
 // 排序后的成员列表：队长固定第一，其他按自定义顺序
 const sortedMembers = computed(() => {
@@ -1344,10 +1390,10 @@ const loadOverviewData = async () => {
   error.value = null
   
   try {
-    const [teamRes, membersRes, statisticsRes, activitiesRes] = await Promise.all([
+    // 核心数据：团队信息、成员列表、活动记录（必须成功）
+    const [teamRes, membersRes, activitiesRes] = await Promise.all([
       getTeam(teamId.value),
       getTeamMembers(teamId.value),
-      getTeamStatistics(teamId.value),
       getTeamActivities(teamId.value, 10)
     ])
     
@@ -1360,8 +1406,22 @@ const loadOverviewData = async () => {
     // 加载关联的比赛列表
     loadRelatedCompetitions()
     
-    if (statisticsRes) {
-      Object.assign(statistics, statisticsRes)
+    // 统计数据：非核心数据，失败时不影响页面展示
+    try {
+      const statisticsRes = await getTeamStatistics(teamId.value)
+      if (statisticsRes) {
+        Object.assign(statistics, statisticsRes)
+      }
+    } catch (statsErr: any) {
+      // 非成员访问时可能无权限，静默处理
+      console.warn('无法加载团队统计数据:', statsErr.message)
+      // 设置默认值
+      statistics.taskCompletionRate = 0
+      statistics.activeDays = 0
+      statistics.totalTasks = 0
+      statistics.completedTasks = 0
+      statistics.totalFiles = 0
+      statistics.messageCount = 0
     }
     
     // 加载成员顺序

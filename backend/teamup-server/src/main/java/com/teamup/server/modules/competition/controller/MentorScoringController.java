@@ -14,6 +14,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 /**
  * 导师端：我指导的比赛队伍（用于评分/查看）
  */
@@ -26,7 +31,7 @@ public class MentorScoringController {
 
     @GetMapping("/competition-teams")
     @PreAuthorize("hasAnyRole('MENTOR','PLATFORM_ADMIN')")
-    public Result<Page<Team>> listMyCompetitionTeams(
+    public Result<Map<String, Object>> listMyCompetitionTeams(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) Long competitionId,
@@ -48,7 +53,32 @@ public class MentorScoringController {
             wrapper.like(Team::getTeamName, keyword);
         }
         wrapper.orderByDesc(Team::getUpdatedAt);
-        return Result.success(teamService.page(pageParam, wrapper));
+        
+        Page<Team> teamPage = teamService.page(pageParam, wrapper);
+        
+        // 转换为包含myRole的Map
+        List<Map<String, Object>> records = new ArrayList<>();
+        for (Team team : teamPage.getRecords()) {
+            Map<String, Object> record = new HashMap<>();
+            record.put("id", team.getId());
+            record.put("teamName", team.getTeamName());
+            record.put("competitionId", team.getCompetitionId());
+            record.put("mentorId", team.getMentorId());
+            record.put("myRole", "MENTOR"); // 当前用户是导师
+            record.put("status", team.getStatus());
+            record.put("createdAt", team.getCreatedAt());
+            record.put("updatedAt", team.getUpdatedAt());
+            records.add(record);
+        }
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("records", records);
+        result.put("total", teamPage.getTotal());
+        result.put("size", teamPage.getSize());
+        result.put("current", teamPage.getCurrent());
+        result.put("pages", teamPage.getPages());
+        
+        return Result.success(result);
     }
 }
 
