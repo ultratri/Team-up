@@ -1,117 +1,479 @@
-# 校园组队生态系统 - Team Up Project
+# 🎓 Team Up - 校园组队生态系统
 
-基于 **多维技能标签** 与 **双向加权匹配算法** 的一站式校园组队协作平台。
+> 基于 **多维技能标签** 与 **双向加权匹配算法** 的一站式校园组队协作平台
+
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-v1.1-green.svg)]()
+[![Status](https://img.shields.io/badge/status-Active-brightgreen.svg)]()
 
 ---
 
 ## 🌟 项目核心理念
 
-本项目不仅是一个组队工具，更是一个**以项目为核心单元**的校园协作生态。我们打破了传统的“先组队后找事”模式，采用“**项目驱动 (Project-Driven)**”逻辑：
+Team Up 不仅是一个组队工具，更是一个**以项目为核心单元**的校园协作生态。我们打破了传统的"先组队后找事"模式，采用**项目驱动 (Project-Driven)** 逻辑：
 
-- **项目是第一公民**：用户围绕具体目标（比赛、科研、实践）创建项目。
-- **团队是执行实体**：项目招募完成后自动转化为执行团队，支持临时解散或长期复用。
-- **比赛是可选导向**：项目可关联各类赛事，形成“发现赛事 -> 组建项目 -> 沉淀成果”的闭环。
+- **项目是第一公民**：用户围绕具体目标（比赛、科研、实践）创建项目
+- **团队是执行实体**：项目招募完成后自动转化为执行团队，支持临时解散或长期复用
+- **比赛是可选导向**：项目可关联各类赛事，形成"发现赛事 → 组建项目 → 沉淀成果"的闭环
+
+### 核心价值
+✨ **智能匹配** - 基于技能、时间、兴趣的多维加权算法  
+🤝 **生态协作** - 从项目发现到团队执行的完整闭环  
+🏆 **信誉体系** - 透明的评价和勋章系统激励优质参与  
+🆕 **新手友好** - 30天新手光环保护，解决冷启动问题
 
 ---
 
 ## 🏗️ 核心业务模型
 
-基于《核心业务逻辑深度分析方案》，项目采用**混合模型**架构：
-
-```mermaid
-graph TD
-    User((用户)) -->|创建| Project[项目 Project]
-    Project -->|可选关联| Competition[比赛 Competition]
-    Project -->|招募完成| Team[团队 Team]
-    Team -->|执行| Task[任务/看板]
-    Team -->|沉淀| Showcase[成果/资源广场]
-    Team -->|评价| Evaluation[信誉分/勋章系统]
+```
+用户 → 创建/发现项目 → 智能匹配成员 → 组建团队 → 执行任务 → 沉淀成果 → 信誉评价
 ```
 
-### 核心匹配机制 (Weighting logic)
-- **成员找项目**：技能匹配(40%) + 时间(25%) + 兴趣(20%) + 比赛偏好(10%)。
-- **项目找成员**：必需技能(50%) + 历史信誉(20%) + 时间投入(20%)。
-- **新手保护**：为新用户提供 30 天“新手光环”，在匹配权重中给予固定加成，解决冷启动问题。
+### 匹配算法权重
+
+**成员找项目** (用户视角)
+- 技能匹配: 40%
+- 时间可用性: 25%
+- 兴趣偏好: 20%
+- 比赛偏好: 10%
+- 新手加成: 5%
+
+**项目找成员** (项目视角)
+- 必需技能: 50%
+- 历史信誉: 20%
+- 时间投入: 20%
+- 新手保护: 10%
 
 ---
 
-## 🎨 生态综合广场 (Union Plaza)
+## 🎨 功能模块详解
 
-项目提供统一的生态入口，包含五大核心模块：
+### 📱 核心页面导航
 
-1. **项目大厅 (Project Hall)**：核心招募地，支持“新手友好”筛选与匹配度感知。
-2. **人才墙 (Talent Square)**：展示活跃用户的技能名片，支持项目发起人“反向挖掘”。
-3. **赛事中心 (Competition Center)**：聚合校内外赛事，直接查看该赛事关联的活跃项目。
-4. **成果广场 (Asset Square)**：沉淀项目归档产出的开源代码、面经、技术方案。
-5. **任务/悬赏墙 (Bounty Board)**：针对短期、轻量化的技术需求（如改 Bug、画 Logo）提供快速协作入口。
+#### 1️⃣ **认证模块** (`/auth`)
+- **登录页** (`Login.vue`) - 学号/邮箱登录，支持记住密码
+- **注册页** (`Register.vue`) - 新用户注册，自动分配新手光环
+- **确认页** (`NeedConfirm.vue`) - 邮箱验证确认
+
+#### 2️⃣ **项目模块** (`/project`)
+
+| 页面 | 功能 | 说明 |
+|------|------|------|
+| **ProjectSquare** | 项目大厅 | 核心招募地，支持筛选、搜索、排序 |
+| **ProjectDetail** | 项目详情 | 查看项目信息、成员、技能需求、申请加入 |
+| **RecommendedProjects** | 为我推荐 | 基于用户画像的智能推荐项目 |
+| **ProjectCandidates** | 推荐候选人 | 项目发起人反向挖掘合适成员 |
+| **MyProjects** | 我的项目 | 用户创建/参与的项目管理 |
+| **ApplicationManage** | 申请管理 | 管理项目的入队申请 |
+| **MatchingResult** | 匹配结果 | 查看匹配分数和推荐理由 |
+
+**核心功能**
+- 创建项目：设置技能需求、时间槽、招募人数
+- 智能匹配：实时计算匹配度，展示推荐理由
+- 申请管理：审核、接受/拒绝入队申请
+- 项目转团队：招募完成后自动转化为团队
+
+#### 3️⃣ **团队模块** (`/team`)
+
+| 页面 | 功能 | 说明 |
+|------|------|------|
+| **TeamList** | 团队列表 | 用户加入的所有团队 |
+| **TeamSpace** | 团队工作区 | 团队协作的主入口 |
+| **TeamOverview** | 团队概览 | 成员、进度、统计信息 |
+| **TaskBoard** | 任务看板 | Kanban 风格的任务管理 |
+| **Chat** | 团队聊天 | 实时群聊，支持文件分享 |
+| **FileShare** | 文件共享 | 团队文件库，版本管理 |
+| **Evaluation** | 成员评估 | 项目完成后的互评系统 |
+| **SprintManage** | 冲刺管理 | 敏捷开发的冲刺规划 |
+| **DailyStandup** | 日报 | 团队日常进度同步 |
+| **TeamSettings** | 团队设置 | 成员管理、权限配置 |
+| **InvitationManagement** | 邀请管理 | 管理团队邀请 |
+| **TeamCandidates** | 候选成员 | 查看推荐的候选人 |
+
+**核心功能**
+- 任务管理：创建、分配、跟踪任务
+- 实时协作：Socket.IO 驱动的实时聊天和通知
+- 文件管理：上传、分享、版本控制
+- 成员评估：项目完成后的互评和信誉计算
+- 权限管理：项目经理、成员等多角色权限
+
+#### 4️⃣ **比赛模块** (`/competition`)
+
+| 页面 | 功能 | 说明 |
+|------|------|------|
+| **CompetitionList** | 比赛广场 | 聚合校内外赛事 |
+| **CompetitionDetail** | 比赛详情 | 赛事信息、关联项目、报名 |
+| **MentorScoring** | 导师评分 | 导师对参赛项目的评分 |
+
+**核心功能**
+- 赛事聚合：展示所有进行中的比赛
+- 项目关联：一个项目可关联多个比赛
+- 导师评分：支持多维度评分和反馈
+
+#### 5️⃣ **生态广场** (`/ecosystem`)
+
+**EcosystemHub** - 统一的生态入口，包含五大子模块：
+
+1. **项目大厅** - 核心招募地
+2. **人才墙** - 展示活跃用户的技能名片
+3. **赛事中心** - 聚合校内外赛事
+4. **成果广场** - 沉淀项目产出（代码、文档、方案）
+5. **任务/悬赏墙** - 短期轻量化协作需求
+
+#### 6️⃣ **导师模块** (`/mentor`)
+
+| 页面 | 功能 | 说明 |
+|------|------|------|
+| **MentorPlaza** | 导师广场 | 展示所有导师及其指导团队 |
+| **MentorApplications** | 指导申请 | 团队申请导师指导 |
+
+**核心功能**
+- 导师展示：导师资料、指导领域、评价
+- 申请指导：团队可申请导师指导
+- 评分反馈：导师对团队的评分和建议
+
+#### 7️⃣ **个人中心** (`/profile`)
+
+| 页面 | 功能 | 说明 |
+|------|------|------|
+| **ProfileView** | 个人资料 | 用户公开资料展示 |
+| **ProfileEdit** | 编辑资料 | 修改个人信息、技能、头像 |
+| **ProjectHistory** | 项目历史 | 用户参与过的所有项目 |
+| **AccountSettings** | 账户设置 | 密码、隐私、通知设置 |
+| **MentorApplication** | 导师申请 | 申请成为导师 |
+
+**核心功能**
+- 技能认证：展示已认证的技能
+- 信誉分：显示用户的信誉等级和勋章
+- 项目历史：完整的参与记录和评价
+- 隐私控制：灵活的隐私设置
+
+#### 8️⃣ **消息中心** (`/message`)
+
+| 页面 | 功能 | 说明 |
+|------|------|------|
+| **MessageCenter** | 消息中心 | 私信、系统消息、通知 |
+
+**核心功能**
+- 私信：用户间的一对一沟通
+- 系统消息：平台通知和提醒
+- 消息分类：按类型组织消息
+
+#### 9️⃣ **通知中心** (`/notification`)
+
+| 页面 | 功能 | 说明 |
+|------|------|------|
+| **NotificationCenter** | 通知中心 | 实时通知管理 |
+
+**核心功能**
+- 实时推送：Socket.IO 驱动的实时通知
+- 通知分类：申请、邀请、评价、系统等
+- 标记已读：批量管理通知状态
+
+#### 🔟 **数据统计** (`/dashboard`)
+
+| 页面 | 功能 | 说明 |
+|------|------|------|
+| **StatsDashboard** | 统计仪表板 | 平台数据可视化 |
+
+**核心功能**
+- 用户统计：活跃用户、新用户趋势
+- 项目统计：项目数、成功率、平均团队规模
+- 技能分布：热门技能、技能需求分析
+- 比赛统计：参赛项目、获奖情况
+
+#### 1️⃣1️⃣ **管理后台** (`/admin`)
+
+| 页面 | 功能 | 说明 |
+|------|------|------|
+| **Dashboard** | 管理仪表板 | 平台运营数据 |
+| **UserManage** | 用户管理 | 用户审核、禁用、数据导出 |
+| **TeamManage** | 团队管理 | 团队审核、解散 |
+| **CompetitionManage** | 比赛管理 | 创建、编辑、发布比赛 |
+| **MentorManage** | 导师管理 | 导师审核、权限管理 |
+| **MentorApplications** | 导师申请审核 | 审核导师申请 |
+| **TagManage** | 标签管理 | 技能标签、兴趣标签管理 |
+| **AnnouncementManage** | 公告管理 | 发布平台公告 |
+| **ContentManage** | 内容管理 | 管理平台内容 |
+| **ReportManage** | 举报管理 | 处理用户举报 |
+| **AuditLog** | 审计日志 | 查看系统操作日志 |
+| **DataExport** | 数据导出 | 导出平台数据 |
+| **SystemSettings** | 系统设置 | 平台配置管理 |
+| **NewbieProtection** | 新手保护 | 管理新手光环政策 |
+| **DepartmentMajorManage** | 院系专业管理 | 管理学校组织结构 |
 
 ---
 
 ## 🛠️ 技术架构
 
 ### 后端服务 (Spring Boot)
-- **核心框架**：Spring Boot 2.7 + MyBatis-Plus
-- **数据库**：MySQL 8.0 (主存储) + Redis (缓存/通知)
-- **实时通信**：Socket.IO (团队群聊/系统通知)
-- **安全校验**：JWT + Spring Security
+```
+Spring Boot 3.x + MyBatis-Plus + MySQL 8.0 + Redis + Socket.IO
+```
 
-### 匹配服务 (FastAPI)
-- **技术栈**：Python 3.11 + FastAPI
-- **职责**：基于用户画像和项目需求执行高并发的加权匹配算法。
+**核心模块**
+- `user` - 用户管理、认证、信誉系统
+- `project` - 项目管理、匹配算法集成
+- `team` - 团队管理、成员协作
+- `matching` - 匹配算法调用、结果缓存
+- `competition` - 比赛管理、项目关联
+- `mentor` - 导师管理、评分系统
+- `evaluation` - 项目评估、互评系统
+- `chat` - 实时聊天、Socket.IO 集成
+- `notification` - 通知系统、消息推送
+- `file` - 文件管理、上传下载
+- `report` - 举报管理、内容审核
+- `admin` - 后台管理、数据统计
+
+### 匹配服务 (Python FastAPI)
+```
+Python 3.11 + FastAPI + NumPy + Scikit-learn
+```
+
+**职责**
+- 用户画像构建：技能、时间、兴趣、历史数据
+- 项目需求分析：技能需求、时间要求、团队规模
+- 加权匹配计算：多维度权重计算和排序
+- 高并发处理：支持实时匹配请求
 
 ### 前端应用 (Vue 3)
-- **核心框架**：Vue 3 (Composition API) + TypeScript
-- **UI 组件库**：Element Plus
-- **状态管理**：Pinia
-- **构建工具**：Vite
+```
+Vue 3 + TypeScript + Vite + Element Plus + Pinia
+```
+
+**核心特性**
+- 响应式设计：支持桌面和移动设备
+- 实时更新：WebSocket 驱动的实时通知
+- 状态管理：Pinia 集中式状态管理
+- 性能优化：代码分割、懒加载、缓存策略
 
 ---
 
 ## 🚀 快速启动
 
-### 1. 数据库配置
-执行 `backend/db_schema.sql` 初始化数据库表结构。
+### 前置要求
+- Node.js 16+
+- Java 11+
+- Python 3.11+
+- MySQL 8.0+
+- Redis 6.0+
 
-### 2. 后端服务 (TeamUp Server)
+### 1. 克隆项目
+```bash
+git clone https://github.com/ultratri/Team-up.git
+cd Team-up
+```
+
+### 2. 后端服务启动
+
 ```bash
 cd backend/teamup-server
+
+# 配置数据库连接
+# 编辑 src/main/resources/application.yml
+
+# 构建和运行
 mvn clean install
 mvn spring-boot:run
+
+# 服务运行在 http://localhost:8080
 ```
 
-### 3. 匹配服务 (Matching Service)
+### 3. 匹配服务启动
+
 ```bash
 cd matching-service
+
+# 创建虚拟环境
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# 安装依赖
 pip install -r requirements.txt
+
+# 运行服务
 python main.py
+
+# 服务运行在 http://localhost:8000
 ```
 
-### 4. 前端应用 (Frontend)
+### 4. 前端应用启动
+
 ```bash
 cd frontend
+
+# 安装依赖
 npm install
+
+# 开发模式
 npm run dev
+
+# 应用运行在 http://localhost:5173
 ```
+
+### 5. 访问应用
+- 前端: http://localhost:5173
+- 后端 API: http://localhost:8080
+- 匹配服务: http://localhost:8000
 
 ---
 
-## 📁 目录结构概览
+## 📁 项目结构
 
 ```
 team-up-project/
-├── backend/                    # Spring Boot 后端源码
-├── frontend/                   # Vue 3 前端源码
-├── matching-service/           # Python 匹配算法服务
-├── project-files/docs/         # 核心业务分析与设计文档
-└── tests/                      # 自动化测试脚本 (Admin Smoke/E2E)
+├── backend/                           # Spring Boot 后端
+│   ├── teamup-server/
+│   │   ├── src/main/java/com/teamup/server/
+│   │   │   ├── common/                # 通用工具、异常处理
+│   │   │   ├── config/                # 配置类
+│   │   │   └── modules/               # 业务模块
+│   │   │       ├── user/              # 用户管理
+│   │   │       ├── project/           # 项目管理
+│   │   │       ├── team/              # 团队管理
+│   │   │       ├── matching/          # 匹配算法
+│   │   │       ├── competition/       # 比赛管理
+│   │   │       ├── mentor/            # 导师管理
+│   │   │       ├── evaluation/        # 评估系统
+│   │   │       ├── chat/              # 聊天功能
+│   │   │       ├── notification/      # 通知系统
+│   │   │       ├── file/              # 文件管理
+│   │   │       ├── report/            # 举报管理
+│   │   │       ├── admin/             # 后台管理
+│   │   │       └── ...
+│   │   └── src/main/resources/
+│   │       ├── application.yml        # 应用配置
+│   │       └── db/migration/          # 数据库迁移脚本
+│   └── pom.xml
+│
+├── frontend/                          # Vue 3 前端
+│   ├── src/
+│   │   ├── views/                     # 页面组件
+│   │   │   ├── auth/                  # 认证页面
+│   │   │   ├── project/               # 项目页面
+│   │   │   ├── team/                  # 团队页面
+│   │   │   ├── competition/           # 比赛页面
+│   │   │   ├── ecosystem/             # 生态广场
+│   │   │   ├── mentor/                # 导师页面
+│   │   │   ├── profile/               # 个人中心
+│   │   │   ├── message/               # 消息中心
+│   │   │   ├── notification/          # 通知中心
+│   │   │   ├── dashboard/             # 数据统计
+│   │   │   └── admin/                 # 管理后台
+│   │   ├── components/                # 可复用组件
+│   │   ├── api/                       # API 接口
+│   │   ├── store/                     # Pinia 状态管理
+│   │   ├── router/                    # 路由配置
+│   │   ├── types/                     # TypeScript 类型
+│   │   ├── utils/                     # 工具函数
+│   │   └── styles/                    # 全局样式
+│   ├── package.json
+│   └── vite.config.ts
+│
+├── matching-service/                  # Python 匹配服务
+│   ├── main.py                        # 服务入口
+│   ├── matching-service/
+│   │   ├── models/                    # 数据模型
+│   │   ├── services/                  # 业务逻辑
+│   │   ├── utils/                     # 工具函数
+│   │   └── config.py                  # 配置文件
+│   └── requirements.txt
+│
+├── project-files/                     # 非功能文件（不上传）
+│   ├── docs/                          # 项目文档
+│   ├── backend-docs/                  # 后端文档
+│   ├── frontend-docs/                 # 前端文档
+│   ├── backend-scripts/               # 后端脚本
+│   ├── frontend-scripts/              # 前端脚本
+│   ├── config/                        # 配置文件
+│   └── ...
+│
+└── README.md                          # 本文件
 ```
 
 ---
 
-## 🤝 贡献与规范
+## 🔑 核心特性
 
-- **提交规范**：遵循 `feat:`, `fix:`, `docs:`, `chore:` 前缀规范。
-- **开发流程**：建议在 `develop` 分支开发，通过 `PR` 合并至 `main`。
+### 🎯 智能匹配系统
+- 多维度权重算法：技能、时间、兴趣、信誉
+- 实时匹配计算：毫秒级响应
+- 匹配度可视化：展示推荐理由
+- 新手保护机制：30天新手光环
+
+### 🤝 完整协作工具
+- 实时聊天：Socket.IO 驱动
+- 任务管理：Kanban 风格看板
+- 文件共享：版本控制和权限管理
+- 日报系统：团队进度同步
+
+### 🏆 信誉激励体系
+- 多维度评价：技能、合作、可靠性
+- 勋章系统：成就解锁
+- 信誉等级：从新手到大师
+- 排行榜：激励优质参与
+
+### 📊 数据驱动决策
+- 实时统计：用户、项目、技能数据
+- 可视化仪表板：趋势分析
+- 导出功能：支持数据下载
+- 审计日志：完整的操作记录
+
+---
+
+## 📚 文档
+
+详细文档位于 `project-files/docs/` 目录：
+
+- **核心业务逻辑** - `project-files/docs/Main/核心业务逻辑深度分析与解决方案.md`
+- **后端文档** - `project-files/backend-docs/`
+- **前端文档** - `project-files/frontend-docs/`
+- **部署指南** - `project-files/root-docs/`
+
+---
+
+## 🤝 贡献指南
+
+### 开发流程
+1. Fork 项目
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'feat: Add AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 开启 Pull Request
+
+### 提交规范
+遵循 Conventional Commits 规范：
+- `feat:` - 新功能
+- `fix:` - 修复 Bug
+- `docs:` - 文档更新
+- `style:` - 代码风格
+- `refactor:` - 代码重构
+- `perf:` - 性能优化
+- `test:` - 测试相关
+- `chore:` - 构建、依赖等
+
+---
+
+## 📄 许可证
+
+本项目采用 MIT 许可证。详见 [LICENSE](LICENSE) 文件。
+
+---
+
+## 📞 联系方式
+
+- **问题反馈**: [GitHub Issues](https://github.com/ultratri/Team-up/issues)
+- **讨论交流**: [GitHub Discussions](https://github.com/ultratri/Team-up/discussions)
+
+---
+
+## 🙏 致谢
+
+感谢所有贡献者和用户的支持！
+
+---
 
 **版本**: v1.1  
-**最后更新**: 2026-02-10
+**最后更新**: 2026-03-04  
+**维护者**: Team Up 开发团队
