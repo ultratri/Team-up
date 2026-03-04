@@ -422,14 +422,392 @@ team-up-project/
 
 ---
 
-## 📚 文档
+## 🧮 核心算法详解
 
-详细文档位于 `project-files/docs/` 目录：
+### 1. 智能匹配算法
 
-- **核心业务逻辑** - `project-files/docs/Main/核心业务逻辑深度分析与解决方案.md`
-- **后端文档** - `project-files/backend-docs/`
-- **前端文档** - `project-files/frontend-docs/`
-- **部署指南** - `project-files/root-docs/`
+#### 成员找项目匹配
+
+**匹配公式**：
+```
+总匹配度 = 技能匹配(40%) + 时间匹配(25%) + 兴趣匹配(20%) + 比赛匹配(10%) + 新手加成(5%)
+```
+
+**技能匹配 (40%)**
+```
+技能匹配度 = (用户拥有的必需技能数 / 项目所需的必需技能数) × 100%
+```
+
+**时间匹配 (25%)**
+```
+时间匹配度 = min(用户可用时间 / 项目所需时间 × 100%, 100%)
+```
+
+**兴趣匹配 (20%)** - 使用余弦相似度
+```
+相似度 = (A·B) / (|A| × |B|)
+兴趣匹配度 = 相似度 × 100%
+```
+
+**比赛匹配 (10%)**
+```
+比赛匹配度 = {
+    100%  如果用户对项目关联的比赛感兴趣
+    50%   如果用户对该类型比赛感兴趣
+    0%    如果用户不感兴趣或项目未关联比赛
+}
+```
+
+**新手加成 (5%)**
+```
+新手加成 = {
+    5分   如果用户是新手（注册<30天 且 完成项目<3个）
+    0分   否则
+}
+```
+
+#### 项目招募成员匹配
+
+**匹配公式**：
+```
+总匹配度 = 技能匹配(50%) + 时间匹配(20%) + 信誉评分(20%) + 历史合作(10%)
+```
+
+#### 团队找项目匹配
+
+**匹配公式**：
+```
+总匹配度 = 技能覆盖度(50%) + 规模匹配(20%) + 团队信誉(20%) + 类型匹配(10%)
+```
+
+### 2. 信誉评分算法
+
+**信誉分范围**：0-100分  
+**初始信誉分**：50分（新用户）  
+**新手初始信誉分**：60分
+
+**信誉分更新公式**：
+```
+新信誉分 = 旧信誉分 × 0.7 + 项目评价分 × 0.3
+```
+
+**项目评价分计算**：
+```
+项目评价分 = (技能水平 + 合作态度 + 可靠性 + 沟通能力) / 4 × 20
+```
+
+**信誉等级系统**：
+
+| 信誉分 | 等级 | 徽章 | 说明 |
+|--------|------|------|------|
+| 0-20 | 新手 | 🌱 | 刚开始参与项目 |
+| 21-40 | 初级 | 📚 | 有一定项目经验 |
+| 41-60 | 中级 | ⭐ | 项目经验丰富 |
+| 61-80 | 高级 | 🏆 | 表现稳定优秀 |
+| 81-100 | 大师 | 👑 | 业界认可的高手 |
+
+### 3. 新手保护机制
+
+**新手判定条件**：
+- 注册时间 < 30天
+- 完成项目 < 3个
+
+**新手加成**：
+- 匹配时加成：5分
+- 初始信誉加成：10分
+
+**新手任务奖励**：
+- 完善个人资料：+10分
+- 技能认证：+15分
+- 完成首个项目：+20分
+- 获得5个好评：+15分
+- **总奖励**：60分
+
+---
+
+## 🏗️ 系统架构
+
+### 整体架构
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        用户浏览器                             │
+│                    (Vue 3 + TypeScript)                      │
+└────────────────────────┬────────────────────────────────────┘
+                         │ HTTP/WebSocket
+                         ↓
+┌─────────────────────────────────────────────────────────────┐
+│                    API 网关 / 负载均衡                        │
+│                    (Nginx / HAProxy)                         │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+        ┌────────────────┼────────────────┐
+        ↓                ↓                ↓
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+│ 后端服务1    │  │ 后端服务2    │  │ 后端服务N    │
+│(Spring Boot) │  │(Spring Boot) │  │(Spring Boot) │
+└──────────────┘  └──────────────┘  └──────────────┘
+        │                │                │
+        └────────────────┼────────────────┘
+                         │
+        ┌────────────────┼────────────────┐
+        ↓                ↓                ↓
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+│   MySQL      │  │   Redis      │  │ 匹配服务     │
+│  (主数据库)  │  │  (缓存/队列) │  │ (FastAPI)    │
+└──────────────┘  └──────────────┘  └──────────────┘
+```
+
+### 后端分层架构
+
+```
+┌─────────────────────────────────────┐
+│      Controller 层 (API 接口)        │
+│  - 请求处理                         │
+│  - 参数验证                         │
+│  - 响应格式化                       │
+└────────────────┬────────────────────┘
+                 │
+┌────────────────▼────────────────────┐
+│      Service 层 (业务逻辑)           │
+│  - 核心业务处理                     │
+│  - 事务管理                         │
+│  - 调用匹配引擎                     │
+└────────────────┬────────────────────┘
+                 │
+┌────────────────▼────────────────────┐
+│      Repository 层 (数据访问)        │
+│  - 数据库操作                       │
+│  - 缓存操作                         │
+│  - 查询优化                         │
+└────────────────┬────────────────────┘
+                 │
+┌────────────────▼────────────────────┐
+│      数据库 / 缓存                   │
+│  - MySQL                            │
+│  - Redis                            │
+└─────────────────────────────────────┘
+```
+
+### 后端模块划分
+
+```
+backend/
+├── common/
+│   ├── api/              # API 响应格式
+│   ├── exception/        # 异常处理
+│   ├── security/         # 安全认证
+│   └── utils/            # 工具类
+│
+├── config/
+│   ├── AsyncConfig       # 异步配置
+│   ├── RedisConfig       # Redis 配置
+│   └── WebMvcConfig      # Web 配置
+│
+└── modules/
+    ├── user/             # 用户模块
+    ├── project/          # 项目模块
+    ├── team/             # 团队模块
+    ├── matching/         # 匹配模块
+    ├── chat/             # 聊天模块
+    ├── notification/     # 通知模块
+    ├── evaluation/       # 评价模块
+    ├── mentor/           # 导师模块
+    ├── competition/      # 比赛模块
+    ├── file/             # 文件模块
+    ├── report/           # 举报模块
+    └── admin/            # 管理模块
+```
+
+### 前端架构
+
+```
+frontend/
+├── src/
+│   ├── main.ts                  # 应用入口
+│   ├── App.vue                  # 根组件
+│   │
+│   ├── api/                     # API 接口
+│   ├── components/              # 可复用组件
+│   ├── views/                   # 页面组件
+│   ├── store/                   # Pinia 状态管理
+│   ├── router/                  # 路由配置
+│   ├── types/                   # TypeScript 类型
+│   ├── utils/                   # 工具函数
+│   ├── styles/                  # 全局样式
+│   └── layouts/                 # 布局组件
+```
+
+### 请求处理流程
+
+```
+HTTP 请求
+  ↓
+DispatcherServlet (路由匹配)
+  ↓
+拦截器 (JWT 验证、权限检查)
+  ↓
+Controller (参数验证、调用 Service)
+  ↓
+Service (业务逻辑处理、调用 Repository)
+  ↓
+Repository (数据库/缓存操作)
+  ↓
+数据库 / 缓存 (返回数据)
+  ↓
+Service (数据处理、返回结果)
+  ↓
+Controller (格式化响应、返回 JSON)
+  ↓
+HTTP 响应
+```
+
+---
+
+## 📊 数据库设计
+
+### 核心表结构
+
+#### users (用户表)
+```sql
+CREATE TABLE users (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    nickname VARCHAR(50),
+    avatar_url VARCHAR(255),
+    bio TEXT,
+    status ENUM('ACTIVE', 'INACTIVE', 'BANNED') DEFAULT 'ACTIVE',
+    registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    credit_score INT DEFAULT 50,
+    completed_projects INT DEFAULT 0,
+    is_newbie BOOLEAN DEFAULT TRUE,
+    newbie_end_date TIMESTAMP,
+    INDEX idx_email (email),
+    INDEX idx_username (username),
+    INDEX idx_credit_score (credit_score)
+);
+```
+
+#### projects (项目表)
+```sql
+CREATE TABLE projects (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    creator_id BIGINT NOT NULL,
+    status ENUM('RECRUITING', 'IN_PROGRESS', 'COMPLETED', 'ARCHIVED') DEFAULT 'RECRUITING',
+    category VARCHAR(50),
+    required_skills JSON,
+    required_hours_per_week INT,
+    start_date DATE,
+    end_date DATE,
+    max_members INT DEFAULT 5,
+    team_id BIGINT,
+    competition_id BIGINT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (creator_id) REFERENCES users(id),
+    FOREIGN KEY (team_id) REFERENCES teams(id),
+    FOREIGN KEY (competition_id) REFERENCES competitions(id),
+    INDEX idx_status (status),
+    INDEX idx_creator_id (creator_id),
+    INDEX idx_created_at (created_at)
+);
+```
+
+#### teams (团队表)
+```sql
+CREATE TABLE teams (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    leader_id BIGINT NOT NULL,
+    type ENUM('TEMPORARY', 'PERMANENT') DEFAULT 'TEMPORARY',
+    status ENUM('ACTIVE', 'INACTIVE', 'DISBANDED') DEFAULT 'ACTIVE',
+    source_project_id BIGINT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (leader_id) REFERENCES users(id),
+    FOREIGN KEY (source_project_id) REFERENCES projects(id),
+    INDEX idx_leader_id (leader_id),
+    INDEX idx_status (status)
+);
+```
+
+#### team_members (团队成员表)
+```sql
+CREATE TABLE team_members (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    team_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    role ENUM('LEADER', 'CORE_MEMBER', 'MEMBER') DEFAULT 'MEMBER',
+    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    left_at TIMESTAMP,
+    UNIQUE KEY unique_team_user (team_id, user_id),
+    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_user_id (user_id)
+);
+```
+
+#### project_applications (项目申请表)
+```sql
+CREATE TABLE project_applications (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    project_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    status ENUM('PENDING', 'APPROVED', 'REJECTED', 'WITHDRAWN') DEFAULT 'PENDING',
+    match_score DECIMAL(5, 2),
+    match_details JSON,
+    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    reviewed_at TIMESTAMP,
+    UNIQUE KEY unique_project_user (project_id, user_id),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_status (status),
+    INDEX idx_project_id (project_id)
+);
+```
+
+#### evaluations (评价表)
+```sql
+CREATE TABLE evaluations (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    project_id BIGINT NOT NULL,
+    evaluator_id BIGINT NOT NULL,
+    evaluated_id BIGINT NOT NULL,
+    skill_rating INT,
+    cooperation_rating INT,
+    reliability_rating INT,
+    communication_rating INT,
+    comment TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (evaluator_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (evaluated_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_evaluated_id (evaluated_id),
+    INDEX idx_project_id (project_id)
+);
+```
+
+### 表间关系
+
+**一对多关系 (1:N)**
+- users → projects (创建)
+- users → teams (领导)
+- projects → project_applications (申请)
+- teams → team_members (成员)
+
+**多对多关系 (N:N)**
+- users ↔ projects (申请)
+- users ↔ teams (成员)
+- users ↔ users (关注)
+- users ↔ projects (收藏)
+
+**自引用关系**
+- users → users (评价)
 
 ---
 
