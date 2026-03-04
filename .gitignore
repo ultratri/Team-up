@@ -97,6 +97,7 @@ coverage/
 
 # Project-specific
 project-files/
+!project-files/docs/
 backend/teamup-server/uploads/
 backend/teamup-server/*.md
 !backend/teamup-server/README.md
